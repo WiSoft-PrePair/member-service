@@ -1,0 +1,39 @@
+[tool.commitizen]
+name = "cz_customize"
+
+[tool.commitizen.customize]
+message_template = "{{change_type}}: {{subject}}{% if body %}\n\n{{body}}{% endif %}{% if issue %}\n\n{{issue}}{% endif %}"
+schema_pattern = "^(✨ feat|🐛 fix|📝 docs|💄 style|♻️ refactor|⚡ perf|✅ test|🔧 chore|⏪ revert|🚀 deploy|🔒 security): .+$"
+
+[[tool.commitizen.customize.questions]]
+type = "list"
+name = "change_type"
+message = "커밋 유형을 선택하세요:"
+choices = [
+    { value = "✨ feat", name = "✨ feat: 새로운 기능 추가" },
+    { value = "🐛 fix", name = "🐛 fix: 버그 수정" },
+    { value = "📝 docs", name = "📝 docs: 문서 수정" },
+    { value = "💄 style", name = "💄 style: 코드 포맷팅 (기능 변경 없음)" },
+    { value = "♻️ refactor", name = "♻️ refactor: 코드 리팩토링" },
+    { value = "⚡ perf", name = "⚡ perf: 성능 개선" },
+    { value = "✅ test", name = "✅ test: 테스트 추가/수정" },
+    { value = "🔧 chore", name = "🔧 chore: 빌드, 설정 변경" },
+    { value = "⏪ revert", name = "⏪ revert: 커밋 되돌리기" },
+    { value = "🚀 deploy", name = "🚀 deploy: 배포 관련" },
+    { value = "🔒 security", name = "🔒 security: 보안 수정" },
+]
+
+[[tool.commitizen.customize.questions]]
+type = "input"
+name = "subject"
+message = "커밋 메시지를 작성하세요:"
+
+[[tool.commitizen.customize.questions]]
+type = "input"
+name = "body"
+message = "상세 설명 (선택사항, 엔터로 건너뛰기):"
+
+[[tool.commitizen.customize.questions]]
+type = "input"
+name = "issue"
+message = "관련 이슈 번호 (예: #123, 선택사항):"
