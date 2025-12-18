@@ -14,7 +14,7 @@ describe("Email Test", () => {
     },
   );
 
-  it.each(["test", "t", "@test.com"])(
+  it.each(["test", "t", "@test.com", "test@", "test@.com"])(
     "should be invalid email",
     (invalidEmail: string) => {
       // Then: 테스트 결과를 검증하는 단계
