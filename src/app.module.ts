@@ -1,25 +1,9 @@
 import { Module } from "@nestjs/common";
-import { MikroOrmCoreModule } from "@mikro-orm/nestjs/mikro-orm-core.module";
-import { PostgreSqlDriver } from "@mikro-orm/postgresql";
-import { MikroOrmModule } from "@mikro-orm/nestjs";
-import { MemberModule } from "@/adapter/member/member.module";
-import { MemberEntity } from "@/adapter/member/persistence/mikro-orm/entity/member.entity";
+import { MemberModule } from "@/application/member/member.module";
+import { DatabaseModule } from "@/adapter/member/persistence/database.module";
 
 @Module({
-  imports: [
-    MikroOrmCoreModule.forRoot({
-      driver: PostgreSqlDriver,
-      host: "dbclass.wisoft.io",
-      port: 10008,
-      user: "dongmin",
-      password: "slow1234!@",
-      dbName: "dongmin",
-      debug: process.env.NODE_ENV !== "production",
-      autoLoadEntities: true,
-    }),
-    MikroOrmModule.forFeature([MemberEntity]),
-    MemberModule,
-  ],
+  imports: [MemberModule, DatabaseModule],
   controllers: [],
   providers: [],
 })

@@ -18,7 +18,7 @@ src/
 │       │   └── member-register.type.ts
 │       ├── value-objects/
 │       │   ├── index.ts
-│       │   └── email.ts
+│       │   └── email.spec.ts
 │       ├── exceptions/
 │       │   ├── index.ts
 │       │   └── invalid-email.exception.ts
@@ -89,7 +89,7 @@ export interface MemberRepository {
 ```
 
 ```typescript
-// domain/member/value-objects/email.ts
+// domain/member/value-objects/email.spec.ts
 export class Email {
   readonly value: string;
 

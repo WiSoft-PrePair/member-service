@@ -906,7 +906,7 @@ export class User {
 ### Value Object
 
 ```typescript
-// domain/member/value-objects/email.ts
+// domain/member/value-objects/email.spec.ts
 import { Embeddable, Property } from '@mikro-orm/core';
 
 @Embeddable()
@@ -1075,7 +1075,7 @@ export class MemberModule {}
   │   │   │   └── frequency.enum.ts
   │   │   └── value-objects/         # 값 객체
   │   │       ├── index.ts
-  │   │       └── email.ts
+  │   │       └── email.spec.ts
   │   │
   │   ├── application/               # 애플리케이션 레이어
   │   │   ├── user.service.ts        # 유스케이스
