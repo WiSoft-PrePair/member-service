@@ -1,12 +1,13 @@
 import { MemberEntity } from "@/adapter/member/persistence/mikro-orm/entity/member.entity";
 import { Email, Member } from "@/domain/member";
+import { Password } from "@/domain/member/value-objects/password";
 
 export class MemberMapper {
   toDomain(entity: MemberEntity): Member {
     return new Member({
       id: entity.id,
       email: new Email(entity.email),
-      password: entity.password,
+      password: new Password(entity.password),
       job: entity.job,
       nickname: entity.nickname,
       notification: entity.notification,
@@ -21,7 +22,7 @@ export class MemberMapper {
 
     entity.id = domain.id;
     entity.email = domain.email.value;
-    entity.password = domain.password;
+    entity.password = domain.password.value;
     entity.job = domain.job;
     entity.nickname = domain.nickname;
     entity.notification = domain.notification;

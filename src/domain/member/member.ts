@@ -1,12 +1,12 @@
 import { FrequencyEnum, NotificationEnum } from "@/domain/member/enums";
 import { MemberRegisterRequest, MemberType } from "@/domain/member/types";
 import { v4 as uuid } from "uuid";
-import { Email } from "@/domain/member/value-objects";
+import { Email, Password } from "@/domain/member/value-objects";
 
 export class Member {
   readonly id: string;
   readonly email: Email;
-  readonly password: string;
+  readonly password: Password;
   readonly job: string;
   readonly nickname: string;
   readonly notification: NotificationEnum;
@@ -31,7 +31,7 @@ export class Member {
     return new Member({
       id: uuid(),
       email: new Email(registerRequest.email),
-      password: registerRequest.password,
+      password: Password.hashedPassword(registerRequest.password),
       job: registerRequest.job,
       nickname: registerRequest.nickname,
       notification: registerRequest.notification,
