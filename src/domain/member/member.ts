@@ -19,7 +19,7 @@ export class Member {
     Object.assign(this, member);
   }
 
-  // 사용자 등록
+  // 사용자 등록 (새로운 엔티티 생성)
   public static register(registerRequest: RegisterMemberRequest): Member {
     return new Member({
       ...registerRequest,
@@ -29,5 +29,10 @@ export class Member {
       point: 0,
       isPro: false,
     });
+  }
+
+  // DB에서 기존 엔티티 복원 (이미 검증된 데이터)
+  public static of(member: MemberType): Member {
+    return new Member(member);
   }
 }
