@@ -4,18 +4,23 @@ export class Email {
   private static readonly EMAIL_PATTERN =
     /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,7}$/;
 
-  private constructor(readonly value: string) {
-    if (!Email.EMAIL_PATTERN.test(value)) {
-      throw new InvalidEmailException(value);
+  constructor(private readonly _value: string) {
+    if (!Email.EMAIL_PATTERN.test(_value)) {
+      throw new InvalidEmailException(_value);
     }
-    this.value = value;
+    this._value = _value;
   }
 
   equals(other: Email): boolean {
-    return this.value === other.value;
+    return this._value === other._value;
   }
 
   toString(): string {
-    return this.value;
+    return this._value;
+  }
+
+
+  get value(): string {
+    return this._value;
   }
 }

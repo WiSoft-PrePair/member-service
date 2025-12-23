@@ -51,7 +51,7 @@ describe("Member Test", () => {
     const member: Member = Member.register(registerRequest);
 
     // Then: 테스트 결과를 검증하는 단계
-    expect(member.email).toBe(registerRequest.email);
+    expect(member.email.value).toBe(registerRequest.email);
     expect(member.password).toBe(registerRequest.password);
     expect(member.job).toBe(registerRequest.job);
     expect(member.nickname).toBe(registerRequest.nickname);
