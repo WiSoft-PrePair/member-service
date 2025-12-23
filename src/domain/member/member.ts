@@ -1,5 +1,4 @@
-import { FrequencyEnum } from "@/domain/member/enums";
-import { NotificationEnum } from "@/domain/member/enums/notification.enum";
+import { FrequencyEnum, NotificationEnum } from "@/domain/member/enums";
 import { MemberType, RegisterMemberRequest } from "@/domain/member/types";
 import { randomUUID } from "crypto";
 import { Email, Password } from "@/domain/member/value-objects";
@@ -19,7 +18,6 @@ export class Member {
     Object.assign(this, member);
   }
 
-  // 사용자 등록 (새로운 엔티티 생성)
   public static register(registerRequest: RegisterMemberRequest): Member {
     return new Member({
       ...registerRequest,

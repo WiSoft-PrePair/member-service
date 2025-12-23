@@ -1,5 +1,5 @@
 import { Entity, Enum, PrimaryKey, Property } from "@mikro-orm/core";
-import { FrequencyEnum, NotificationEnum }    from "@/domain/member/enums";
+import { FrequencyEnum, NotificationEnum } from "@/domain/member/enums";
 
 @Entity({ tableName: "member" })
 export class MemberEntity {

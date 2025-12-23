@@ -1,15 +1,18 @@
 import { Module } from "@nestjs/common";
-import { MemberController } from "@/adapter/member/api/member.controller";
-import { RegisterMemberService } from "@/application/member/register-member.service";
-import { SecurePasswordEncoder } from "@/adapter/member/security/secure-password-encoder";
-import { MemberRepositoryImpl } from "@/adapter/member/persistence/mikro-orm/member.respository-impl";
-import { MEMBER_REPOSITORY } from "@/domain/member";
-import { PASSWORD_ENCODER } from "@/domain/member/password-encoder";
+import { MemberController } from "@/adapter/member/api";
+import { RegisterMemberService } from "@/application/member";
+import {
+  MemberMapper,
+  MemberRepositoryImpl,
+} from "@/adapter/member/persistence";
+import { MEMBER_REPOSITORY, PASSWORD_ENCODER } from "@/domain/member";
+import { SecurePasswordEncoder } from "@/adapter/member/security";
 
 @Module({
   controllers: [MemberController],
   providers: [
     RegisterMemberService,
+    MemberMapper,
     {
       provide: PASSWORD_ENCODER,
       useClass: SecurePasswordEncoder,

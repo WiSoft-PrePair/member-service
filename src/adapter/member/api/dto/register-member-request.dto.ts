@@ -1,5 +1,5 @@
 import { FrequencyEnum, NotificationEnum } from "@/domain/member";
-import { IsEmail, IsString } from "class-validator";
+import { IsEmail, IsEnum, IsString } from "class-validator";
 
 export class RegisterMemberRequestDto {
   @IsEmail()
@@ -14,9 +14,9 @@ export class RegisterMemberRequestDto {
   @IsString()
   nickname!: string;
 
-  @IsString()
+  @IsEnum(NotificationEnum)
   notification!: NotificationEnum;
 
-  @IsString()
+  @IsEnum(FrequencyEnum)
   frequency!: FrequencyEnum;
 }

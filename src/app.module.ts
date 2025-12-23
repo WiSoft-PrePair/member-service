@@ -3,7 +3,6 @@ import { MemberModule } from "@/adapter/member/member.module";
 import { PersistenceModule } from "@/adapter/member/persistence/persistence.module";
 import { ConfigModule } from "@nestjs/config";
 import { envSchema } from "@/config/env.config";
-import { MemberController } from "@/adapter/member/api/member.controller";
 
 @Module({
   imports: [
@@ -14,7 +13,7 @@ import { MemberController } from "@/adapter/member/api/member.controller";
     PersistenceModule,
     MemberModule,
   ],
-  controllers: [MemberController],
+  controllers: [],
   providers: [],
 })
 export class AppModule {}

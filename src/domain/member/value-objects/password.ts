@@ -2,6 +2,7 @@ import { InvalidPasswordException } from "@/domain/member/exception/invalid-pass
 
 export class Password {
   constructor(private readonly _value: string) {
+    this.validate(_value);
     this._value = _value;
   }
 
@@ -9,7 +10,7 @@ export class Password {
     return new Password(password);
   }
 
-  public validate(password: string): never | void {
+  private validate(password: string): never | void {
     if (password.length < 8) {
       throw new InvalidPasswordException();
     }

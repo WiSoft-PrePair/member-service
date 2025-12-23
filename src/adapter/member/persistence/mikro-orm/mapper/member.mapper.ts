@@ -1,7 +1,9 @@
 import { MemberEntity } from "@/adapter/member/persistence/mikro-orm/entity/member.entity";
 import { Email, Member } from "@/domain/member";
 import { Password } from "@/domain/member/value-objects/password";
+import { Injectable } from "@nestjs/common";
 
+@Injectable()
 export class MemberMapper {
   toDomain(entity: MemberEntity): Member {
     return Member.of({

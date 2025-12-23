@@ -3,13 +3,11 @@ import {
   Member,
   MEMBER_REPOSITORY,
   type MemberRepository,
+  PASSWORD_ENCODER,
+  type PasswordEncoder,
   RegisterMemberRequest,
 } from "@/domain/member";
 import { EntityManager } from "@mikro-orm/core";
-import {
-  PASSWORD_ENCODER,
-  type PasswordEncoder,
-} from "@/domain/member/password-encoder";
 
 @Injectable()
 export class RegisterMemberService {

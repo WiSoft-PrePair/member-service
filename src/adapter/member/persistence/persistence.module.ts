@@ -3,8 +3,8 @@ import { ConfigService } from "@nestjs/config";
 import { MikroOrmCoreModule } from "@mikro-orm/nestjs/mikro-orm-core.module";
 import { MikroOrmModule } from "@mikro-orm/nestjs";
 import { mikroOrmConfig } from "@/config/database.config";
-import { Env } from "@/config/env.config";
 import { MikroORM } from "@mikro-orm/core";
+import { Env } from "@/config";
 
 @Module({
   imports: [

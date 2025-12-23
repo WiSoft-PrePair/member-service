@@ -2,7 +2,7 @@ import { ConfigService } from "@nestjs/config";
 import { MikroOrmModuleOptions } from "@mikro-orm/nestjs";
 import { PostgreSqlDriver } from "@mikro-orm/postgresql";
 import { Env } from "./env.config";
-import { MemberEntity } from "@/adapter/member/persistence/mikro-orm/entity/member.entity";
+import { MemberEntity } from "@/adapter/member/persistence/mikro-orm/entity";
 
 export const mikroOrmConfig = (
   configService: ConfigService<Env, true>,

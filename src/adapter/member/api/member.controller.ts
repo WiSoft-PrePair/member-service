@@ -1,15 +1,16 @@
 import { Body, Controller, Post } from "@nestjs/common";
-import { Member, type RegisterMemberRequest } from "@/domain/member";
-import { RegisterMemberService } from "@/application/member/register-member.service";
+import { Member } from "@/domain/member";
+import { RegisterMemberService } from "@/application/member";
+import { RegisterMemberRequestDto } from "@/adapter/member/api/dto";
 
 @Controller("members")
 export class MemberController {
   constructor(private readonly registerMemberService: RegisterMemberService) {}
 
   @Post("register")
-  async register(@Body() registerRequest: RegisterMemberRequest) {
+  async register(@Body() registerDto: RegisterMemberRequestDto) {
     const member: Member =
-      await this.registerMemberService.register(registerRequest);
+      await this.registerMemberService.register(registerDto);
 
     return {
       id: member.id,
