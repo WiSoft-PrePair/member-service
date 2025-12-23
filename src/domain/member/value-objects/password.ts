@@ -15,7 +15,6 @@ export class Password {
     }
   }
 
-
   get value(): string {
     return this._value;
   }

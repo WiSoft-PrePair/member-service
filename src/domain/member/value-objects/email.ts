@@ -19,7 +19,6 @@ export class Email {
     return this._value;
   }
 
-
   get value(): string {
     return this._value;
   }
