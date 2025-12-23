@@ -1,10 +1,10 @@
 import { FrequencyEnum, NotificationEnum } from "@/domain/member/enums";
-import { Email } from "@/domain/member/value-objects";
+import { Email, Password } from "@/domain/member/value-objects";
 
 export type MemberType = {
   id: string;
   email: Email;
-  password: string;
+  password: Password;
   job: string;
   nickname: string;
   notification: NotificationEnum;
@@ -15,7 +15,8 @@ export type MemberType = {
 
 export type RegisterMemberRequest = Omit<
   MemberType,
-  "id" | "email" | "point" | "isPro"
+  "id" | "email" | "point" | "isPro" | "password"
 > & {
   email: string;
+  password: string;
 };

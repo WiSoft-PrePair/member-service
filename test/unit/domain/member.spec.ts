@@ -52,7 +52,7 @@ describe("Member Test", () => {
 
     // Then: 테스트 결과를 검증하는 단계
     expect(member.email.value).toBe(registerRequest.email);
-    expect(member.password).toBe(registerRequest.password);
+    expect(member.password.value).toBe(registerRequest.password);
     expect(member.job).toBe(registerRequest.job);
     expect(member.nickname).toBe(registerRequest.nickname);
     expect(member.notification).toBe(registerRequest.notification);
