@@ -16,4 +16,5 @@ export const mikroOrmConfig = (
   debug: configService.get("NODE_ENV") === "dev",
   autoLoadEntities: true,
   entities: [MemberEntity],
+  registerRequestContext: true,
 });

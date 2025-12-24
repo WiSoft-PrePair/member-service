@@ -2,6 +2,7 @@ import { FrequencyEnum, NotificationEnum } from "@/domain/member/enums";
 import { MemberType, RegisterMemberRequest } from "@/domain/member/types";
 import { randomUUID } from "crypto";
 import { Email, Password } from "@/domain/member/value-objects";
+import type { PasswordEncoder } from "@/domain/member/password-encoder";
 
 export class Member {
   readonly id: string;
@@ -18,12 +19,15 @@ export class Member {
     Object.assign(this, member);
   }
 
-  public static register(registerRequest: RegisterMemberRequest): Member {
+  public static register(
+    registerRequest: RegisterMemberRequest,
+    encoder: PasswordEncoder,
+  ): Member {
     return new Member({
       ...registerRequest,
       id: randomUUID(),
       email: new Email(registerRequest.email),
-      password: Password.hashedPassword(registerRequest.password),
+      password: Password.create(registerRequest.password, encoder),
       point: 0,
       isPro: false,
     });

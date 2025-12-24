@@ -1,7 +1,7 @@
 import { InvalidEmailException } from "@/domain/member/exception";
 
 export class Email {
-  private static readonly EMAIL_PATTERN =
+  private static readonly EMAIL_PATTERN: RegExp =
     /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,7}$/;
 
   constructor(private readonly _value: string) {
@@ -11,15 +11,15 @@ export class Email {
     this._value = _value;
   }
 
-  equals(other: Email): boolean {
+  public equals(other: Email): boolean {
     return this._value === other._value;
   }
 
-  toString(): string {
+  public toString(): string {
     return this._value;
   }
 
-  get value(): string {
+  public get value(): string {
     return this._value;
   }
 }

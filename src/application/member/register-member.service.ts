@@ -5,9 +5,9 @@ import {
   type MemberRepository,
   PASSWORD_ENCODER,
   type PasswordEncoder,
-  RegisterMemberRequest,
+  type RegisterMemberRequest,
 } from "@/domain/member";
-import { EntityManager } from "@mikro-orm/core";
+import { EntityManager, Transactional } from "@mikro-orm/core";
 
 @Injectable()
 export class RegisterMemberService {
@@ -18,15 +18,13 @@ export class RegisterMemberService {
     private readonly passwordEncoder: PasswordEncoder,
     private readonly em: EntityManager,
   ) {}
-  async register(registerRequest: RegisterMemberRequest): Promise<Member> {
-    const hashedPassword: string = this.passwordEncoder.encode(
-      registerRequest.password,
-    );
 
-    const member: Member = Member.register({
-      ...registerRequest,
-      password: hashedPassword,
-    });
+  @Transactional()
+  async register(registerRequest: RegisterMemberRequest): Promise<Member> {
+    const member: Member = Member.register(
+      registerRequest,
+      this.passwordEncoder,
+    );
 
     this.memberRepository.register(member);
     await this.em.flush();

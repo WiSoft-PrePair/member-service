@@ -1,6 +1,5 @@
 import { MemberEntity } from "@/adapter/member/persistence/mikro-orm/entity/member.entity";
-import { Email, Member } from "@/domain/member";
-import { Password } from "@/domain/member/value-objects/password";
+import { Email, Member, Password } from "@/domain/member";
 import { Injectable } from "@nestjs/common";
 
 @Injectable()
@@ -9,7 +8,7 @@ export class MemberMapper {
     return Member.of({
       id: entity.id,
       email: new Email(entity.email),
-      password: new Password(entity.password),
+      password: Password.fromHashed(entity.password),
       job: entity.job,
       nickname: entity.nickname,
       notification: entity.notification,

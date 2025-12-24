@@ -1,22 +1,37 @@
-import { InvalidPasswordException } from "@/domain/member/exception/invalid-password.exception";
+import { InvalidPasswordException } from "@/domain/member/exception";
+import type { PasswordEncoder } from "@/domain/member/password-encoder";
 
 export class Password {
-  constructor(private readonly _value: string) {
-    this.validate(_value);
-    this._value = _value;
+  private static readonly MIN_LENGTH = 8;
+
+  private constructor(private readonly _value: string) {}
+
+  public static create(
+    plainPassword: string,
+    encoder: PasswordEncoder,
+  ): Password {
+    Password.validate(plainPassword);
+
+    const hashed: string = encoder.encode(plainPassword);
+
+    return new Password(hashed);
   }
 
-  public static hashedPassword(password: string): Password {
-    return new Password(password);
+  public static fromHashed(hashedPassword: string): Password {
+    return new Password(hashedPassword);
   }
 
-  private validate(password: string): never | void {
-    if (password.length < 8) {
+  private static validate(password: string): void {
+    if (password.length < this.MIN_LENGTH) {
       throw new InvalidPasswordException();
     }
   }
 
-  get value(): string {
+  public matches(plain: string, encoder: PasswordEncoder): boolean {
+    return encoder.matches(plain, this._value);
+  }
+
+  public get value(): string {
     return this._value;
   }
 }
