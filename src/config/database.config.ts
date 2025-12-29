@@ -3,6 +3,7 @@ import { MikroOrmModuleOptions } from "@mikro-orm/nestjs";
 import { PostgreSqlDriver } from "@mikro-orm/postgresql";
 import { Env } from "./env.config";
 import { MemberEntity } from "@/adapter/member/persistence/mikro-orm/entity";
+import { EventStoreEntity } from "@/adapter/shared/event-store";
 
 export const mikroOrmConfig = (
   configService: ConfigService<Env, true>,
@@ -15,6 +16,6 @@ export const mikroOrmConfig = (
   dbName: configService.get("POSTGRES_DB"),
   debug: configService.get("NODE_ENV") === "dev",
   autoLoadEntities: true,
-  entities: [MemberEntity],
+  entities: [MemberEntity, EventStoreEntity],
   registerRequestContext: true,
 });

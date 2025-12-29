@@ -7,8 +7,10 @@ import {
 } from "@/adapter/member/persistence";
 import { MEMBER_REPOSITORY, PASSWORD_ENCODER } from "@/domain/member";
 import { SecurePasswordEncoder } from "@/adapter/member/security";
+import { EventStoreModule } from "@/adapter/shared/event-store/event-store.module";
 
 @Module({
+  imports: [EventStoreModule],
   controllers: [MemberController],
   providers: [
     RegisterMemberService,

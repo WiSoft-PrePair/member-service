@@ -8,6 +8,11 @@ import {
   type RegisterMemberRequest,
 } from "@/domain/member";
 import { EntityManager, Transactional } from "@mikro-orm/core";
+import {
+  createDomainEvent,
+  EVENT_STORE,
+  type EventStore,
+} from "@/domain/shared";
 
 @Injectable()
 export class RegisterMemberService {
@@ -16,6 +21,8 @@ export class RegisterMemberService {
     private readonly memberRepository: MemberRepository,
     @Inject(PASSWORD_ENCODER)
     private readonly passwordEncoder: PasswordEncoder,
+    @Inject(EVENT_STORE)
+    private readonly eventStore: EventStore,
     private readonly em: EntityManager,
   ) {}
 
@@ -27,6 +34,21 @@ export class RegisterMemberService {
     );
 
     this.memberRepository.register(member);
+
+    this.eventStore.append(
+      createDomainEvent(member.id, "MemberRegistered", {
+        id: member.id,
+        email: member.email.value,
+        password: member.password.value,
+        job: member.job,
+        nickname: member.nickname,
+        notification: member.notification,
+        frequency: member.frequency,
+        point: member.point,
+        isPro: member.isPro,
+      }),
+    );
+
     await this.em.flush();
 
     return member;
