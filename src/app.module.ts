@@ -1,10 +1,19 @@
 import { Module } from "@nestjs/common";
-import { AppController } from "@/app.controller";
-import { AppService } from "@/app.service";
+import { MemberModule } from "@/adapter/member/member.module";
+import { PersistenceModule } from "@/adapter/member/persistence/persistence.module";
+import { ConfigModule } from "@nestjs/config";
+import { envSchema } from "@/config/env.config";
 
 @Module({
-  imports: [],
-  controllers: [AppController],
-  providers: [AppService],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validate: (config: Record<string, any>) => envSchema.parse(config),
+    }),
+    PersistenceModule,
+    MemberModule,
+  ],
+  controllers: [],
+  providers: [],
 })
 export class AppModule {}
