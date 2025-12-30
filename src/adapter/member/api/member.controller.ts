@@ -2,11 +2,7 @@ import { Body, Controller, Get, Param, Post } from "@nestjs/common";
 import { RegisterMemberRequestDto } from "@/adapter/member/api/dto";
 import { CommandBus, QueryBus } from "@nestjs/cqrs";
 import { RegisterMemberCommand } from "@/application/member/command";
-import {
-  GetMemberHandler,
-  GetMemberQuery,
-  GetMemberResult,
-} from "@/application/member/query";
+import { GetMemberQuery, GetMemberResult } from "@/application/member/query";
 
 @Controller("members")
 export class MemberController {

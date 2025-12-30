@@ -1,0 +1,44 @@
+import { Inject, Injectable, Logger } from "@nestjs/common";
+import { EventsHandler, IEventHandler } from "@nestjs/cqrs";
+import { MemberRegisterEvent } from "@/domain/member/events";
+import {
+  MEMBER_READ_REPOSITORY,
+  MemberReadEntity,
+  type MemberReadRepository,
+} from "@/adapter/member/persistence/read";
+import { EntityManager } from "@mikro-orm/core";
+
+@Injectable()
+@EventsHandler(MemberRegisterEvent)
+export class MemberRegisterHandler
+  implements IEventHandler<MemberRegisterEvent>
+{
+  private readonly logger: Logger = new Logger(MemberRegisterHandler.name);
+
+  constructor(
+    @Inject(MEMBER_READ_REPOSITORY)
+    private readonly memberReadRepository: MemberReadRepository,
+    private readonly em: EntityManager,
+  ) {}
+
+  async handle(event: MemberRegisterEvent): Promise<void> {
+    this.logger.log(`회원가입 이벤트 시작: ${event.memberId}`);
+
+    const readEntity = new MemberReadEntity();
+    readEntity.id = event.memberId;
+    readEntity.email = event.email;
+    readEntity.job = event.job;
+    readEntity.nickname = event.nickname;
+    readEntity.notification = event.notification;
+    readEntity.frequency = event.frequency;
+    readEntity.point = 0;
+    readEntity.isPro = false;
+    readEntity.createdAt = event.occurredAt;
+    readEntity.updatedAt = event.occurredAt;
+
+    this.memberReadRepository.save(readEntity);
+    await this.em.flush();
+
+    this.logger.log(`회원가입 이벤트 종료: ${event.memberId}`);
+  }
+}

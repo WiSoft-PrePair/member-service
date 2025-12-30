@@ -1,6 +1,5 @@
 import { Module } from "@nestjs/common";
 import { MemberController } from "@/adapter/member/api";
-import { RegisterMemberService } from "@/application/member";
 import {
   MemberMapper,
   MemberRepositoryImpl,
@@ -8,22 +7,40 @@ import {
 import { MEMBER_REPOSITORY, PASSWORD_ENCODER } from "@/domain/member";
 import { SecurePasswordEncoder } from "@/adapter/member/security";
 import { EventStoreModule } from "@/adapter/shared/event-store/event-store.module";
+import { RegisterMemberHandler } from "@/application/member/command";
+import { GetMemberHandler } from "@/application/member/query";
+import { MemberRegisterHandler } from "@/application/member/event";
+import { CqrsModule } from "@nestjs/cqrs";
+import {
+  MEMBER_READ_REPOSITORY,
+  MemberReadRepositoryImpl,
+} from "@/adapter/member/persistence/read";
+
+const CommandHandlers = [RegisterMemberHandler];
+const QueryHandlers = [GetMemberHandler];
+const EventHandlers = [MemberRegisterHandler];
 
 @Module({
-  imports: [EventStoreModule],
+  imports: [EventStoreModule, CqrsModule],
   controllers: [MemberController],
   providers: [
-    RegisterMemberService,
+    ...CommandHandlers,
+    ...QueryHandlers,
+    ...EventHandlers,
     MemberMapper,
-    {
-      provide: PASSWORD_ENCODER,
-      useClass: SecurePasswordEncoder,
-    },
     {
       provide: MEMBER_REPOSITORY,
       useClass: MemberRepositoryImpl,
     },
+    {
+      provide: MEMBER_READ_REPOSITORY,
+      useClass: MemberReadRepositoryImpl,
+    },
+    {
+      provide: PASSWORD_ENCODER,
+      useClass: SecurePasswordEncoder,
+    },
   ],
-  exports: [RegisterMemberService],
+  exports: [MEMBER_REPOSITORY, MEMBER_READ_REPOSITORY],
 })
 export class MemberModule {}
