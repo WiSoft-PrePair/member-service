@@ -214,7 +214,7 @@ src/
 ├── application/
 │   └── member/
 │       ├── command/                            # Command Side (NEW)
-│       │   ├── register-member.command.ts      # Command + Handler 통합
+│       │   ├── member-register.command.ts      # Command + Handler 통합
 │       │   ├── change-email.command.ts
 │       │   └── index.ts
 │       │
@@ -266,15 +266,15 @@ src/
 # 기존 방식: 폴더별 분리 (파일 많음)
 application/member/command/
 ├── register-member/
-│   ├── register-member.command.ts
-│   └── register-member.handler.ts      # 유스케이스마다 2개 파일
+│   ├── member-register.command.ts
+│   └── member-register.handler.ts      # 유스케이스마다 2개 파일
 ├── change-email/
 │   ├── change-email.command.ts
 │   └── change-email.handler.ts
 
 # 대안 1: 파일 통합 (파일 최소화)
 application/member/command/
-├── register-member.command.ts          # Command + Handler 함께
+├── member-register.command.ts          # Command + Handler 함께
 ├── change-email.command.ts             # 유스케이스마다 1개 파일
 └── index.ts
 ```
@@ -294,7 +294,7 @@ application/member/command/
 
 | 순서 | 작업 | 파일 |
 |-----|-----|-----|
-| 2-1 | RegisterMemberCommand + Handler | `application/member/command/register-member.command.ts` |
+| 2-1 | MemberRegisterCommand + Handler | `application/member/command/member-register.command.ts` |
 | 2-2 | Controller에서 CommandBus 사용 | `adapter/member/api/member.controller.ts` |
 | 2-3 | 기존 Service 파일 제거 | `application/member/register-member.service.ts` 삭제 |
 
@@ -380,7 +380,7 @@ export * from "./member-registered.event";
 
 #### 2-1. Command + Handler 통합 파일
 
-**파일:** `src/application/member/command/register-member.command.ts`
+**파일:** `src/application/member/command/member-register.command.ts`
 
 ```typescript
 import { CommandHandler, EventBus, ICommand, ICommandHandler } from "@nestjs/cqrs";
@@ -404,7 +404,7 @@ import {
 // ============================================================
 // Command
 // ============================================================
-export class RegisterMemberCommand implements ICommand {
+export class MemberRegisterCommand implements ICommand {
   constructor(
     public readonly email: string,
     public readonly password: string,
@@ -419,9 +419,9 @@ export class RegisterMemberCommand implements ICommand {
 // Handler
 // ============================================================
 @Injectable()
-@CommandHandler(RegisterMemberCommand)
-export class RegisterMemberHandler
-  implements ICommandHandler<RegisterMemberCommand, string>
+@CommandHandler(MemberRegisterCommand)
+export class MemberRegisterHandler
+  implements ICommandHandler<MemberRegisterCommand, string>
 {
   constructor(
     @Inject(MEMBER_REPOSITORY)
@@ -435,7 +435,7 @@ export class RegisterMemberHandler
   ) {}
 
   @Transactional()
-  async execute(command: RegisterMemberCommand): Promise<string> {
+  async execute(command: MemberRegisterCommand): Promise<string> {
     // 1. Domain Aggregate 생성
     const member = Member.register(
       {
@@ -490,7 +490,7 @@ export class RegisterMemberHandler
 **파일:** `src/application/member/command/index.ts`
 
 ```typescript
-export { RegisterMemberCommand, RegisterMemberHandler } from "./register-member.command";
+export { MemberRegisterCommand, MemberRegisterHandler } from "./register-member.command";
 // 추가 Command는 여기에 export
 // export { ChangeEmailCommand, ChangeEmailHandler } from "./change-email.command";
 ```
@@ -503,7 +503,7 @@ export { RegisterMemberCommand, RegisterMemberHandler } from "./register-member.
 import { Body, Controller, Post } from "@nestjs/common";
 import { CommandBus } from "@nestjs/cqrs";
 import { RegisterMemberRequestDto } from "./dto/request/register-member.request.dto";
-import { RegisterMemberCommand } from "@/application/member/command";
+import { MemberRegisterCommand } from "@/application/member/command";
 
 @Controller("members")
 export class MemberController {
@@ -511,8 +511,8 @@ export class MemberController {
 
   @Post("register")
   async register(@Body() dto: RegisterMemberRequestDto): Promise<{ id: string }> {
-    const memberId = await this.commandBus.execute<RegisterMemberCommand, string>(
-      new RegisterMemberCommand(
+    const memberId = await this.commandBus.execute<MemberRegisterCommand, string>(
+      new MemberRegisterCommand(
         dto.email,
         dto.password,
         dto.job,
@@ -713,7 +713,7 @@ export { GetMemberQuery, GetMemberResult, GetMemberHandler } from "./get-member.
 import { Body, Controller, Get, Param, Post } from "@nestjs/common";
 import { CommandBus, QueryBus } from "@nestjs/cqrs";
 import { RegisterMemberRequestDto } from "./dto/request/register-member.request.dto";
-import { RegisterMemberCommand } from "@/application/member/command";
+import { MemberRegisterCommand } from "@/application/member/command";
 import { GetMemberQuery, GetMemberResult } from "@/application/member/query";
 
 @Controller("members")
@@ -725,8 +725,8 @@ export class MemberController {
 
   @Post("register")
   async register(@Body() dto: RegisterMemberRequestDto): Promise<{ id: string }> {
-    const memberId = await this.commandBus.execute<RegisterMemberCommand, string>(
-      new RegisterMemberCommand(
+    const memberId = await this.commandBus.execute<MemberRegisterCommand, string>(
+      new MemberRegisterCommand(
         dto.email,
         dto.password,
         dto.job,
@@ -846,7 +846,7 @@ import { PASSWORD_ENCODER } from "@/domain/member";
 import { EventStoreModule } from "@/adapter/shared/event-store/event-store.module";
 
 // Command Handlers
-import { RegisterMemberHandler } from "@/application/member/command";
+import { MemberRegisterHandler } from "@/application/member/command";
 
 // Query Handlers
 import { GetMemberHandler } from "@/application/member/query";
@@ -855,7 +855,7 @@ import { GetMemberHandler } from "@/application/member/query";
 import { MemberRegisteredHandler } from "@/application/member/event";
 
 // Handler 배열로 관리
-const CommandHandlers = [RegisterMemberHandler];
+const CommandHandlers = [MemberRegisterHandler];
 const QueryHandlers = [GetMemberHandler];
 const EventHandlers = [MemberRegisteredHandler];
 
@@ -907,13 +907,13 @@ export class MemberModule {}
 import { Test, TestingModule } from "@nestjs/testing";
 import { EventBus } from "@nestjs/cqrs";
 import { EntityManager } from "@mikro-orm/core";
-import { RegisterMemberCommand, RegisterMemberHandler } from "./register-member.command";
+import { MemberRegisterCommand, MemberRegisterHandler } from "./register-member.command";
 import { MEMBER_REPOSITORY, PASSWORD_ENCODER } from "@/domain/member";
 import { EVENT_STORE } from "@/domain/shared";
 import { NotificationEnum, FrequencyEnum } from "@/domain/member/enums";
 
-describe("RegisterMemberHandler", () => {
-  let handler: RegisterMemberHandler;
+describe("MemberRegisterHandler", () => {
+  let handler: MemberRegisterHandler;
   let memberRepository: jest.Mocked<any>;
   let eventStore: jest.Mocked<any>;
   let eventBus: jest.Mocked<EventBus>;
@@ -925,7 +925,7 @@ describe("RegisterMemberHandler", () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        RegisterMemberHandler,
+        MemberRegisterHandler,
         { provide: MEMBER_REPOSITORY, useValue: memberRepository },
         { provide: PASSWORD_ENCODER, useValue: { encode: (p: string) => `hashed_${p}` } },
         { provide: EVENT_STORE, useValue: eventStore },
@@ -934,11 +934,11 @@ describe("RegisterMemberHandler", () => {
       ],
     }).compile();
 
-    handler = module.get<RegisterMemberHandler>(RegisterMemberHandler);
+    handler = module.get<MemberRegisterHandler>(MemberRegisterHandler);
   });
 
   it("should register member and publish event", async () => {
-    const command = new RegisterMemberCommand(
+    const command = new MemberRegisterCommand(
       "test@example.com",
       "password123",
       "Developer",
@@ -1072,7 +1072,7 @@ describe("MemberRegisteredHandler", () => {
 
 - [ ] `CqrsModule.forRoot()` 설정 완료
 - [ ] Domain Event 클래스 생성 (`MemberRegisteredEvent`)
-- [ ] Command + Handler 구현 (`register-member.command.ts`)
+- [ ] Command + Handler 구현 (`member-register.command.ts`)
 - [ ] Query + Handler 구현 (`get-member.query.ts`)
 - [ ] Read Model Entity 생성 (`MemberReadEntity`)
 - [ ] Read Repository 구현 (`MemberReadRepositoryImpl`)

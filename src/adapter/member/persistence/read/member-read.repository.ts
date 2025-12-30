@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { MemberReadEntity } from "@/adapter/member/persistence/read/entity/member-read.entity";
+import { MemberReadEntity } from "./entity/member-read.entity";
 import { EntityManager } from "@mikro-orm/core";
 
 export interface MemberReadRepository {
@@ -13,6 +13,8 @@ export interface MemberReadRepository {
     limit?: number;
     offset?: number;
   }): Promise<MemberReadEntity[]>;
+
+  withdraw(id: string): Promise<number>;
 }
 
 @Injectable()
@@ -44,6 +46,10 @@ export class MemberReadRepositoryImpl implements MemberReadRepository {
         orderBy: { createdAt: "DESC" },
       },
     );
+  }
+
+  async withdraw(id: string): Promise<number> {
+    return await this.em.nativeDelete(MemberReadEntity, { id });
   }
 }
 

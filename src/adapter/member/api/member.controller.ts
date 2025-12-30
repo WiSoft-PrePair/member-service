@@ -1,7 +1,10 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post } from "@nestjs/common";
 import { RegisterMemberRequestDto } from "@/adapter/member/api/dto";
 import { CommandBus, QueryBus } from "@nestjs/cqrs";
-import { RegisterMemberCommand } from "@/application/member/command";
+import {
+  MemberRegisterCommand,
+  MemberWithdrawCommand,
+} from "@/application/member/command";
 import { GetMemberQuery, GetMemberResult } from "@/application/member/query";
 
 @Controller("members")
@@ -14,10 +17,10 @@ export class MemberController {
   @Post("register")
   async register(@Body() registerDto: RegisterMemberRequestDto) {
     const memberId: string = await this.commandBus.execute<
-      RegisterMemberCommand,
+      MemberRegisterCommand,
       string
     >(
-      new RegisterMemberCommand(
+      new MemberRegisterCommand(
         registerDto.email,
         registerDto.password,
         registerDto.job,
@@ -35,5 +38,15 @@ export class MemberController {
     return this.queryBus.execute<GetMemberQuery, GetMemberResult>(
       new GetMemberQuery(id),
     );
+  }
+
+  @Delete(":id")
+  async withdraw(@Param("id") id: string) {
+    const memberId: string = await this.commandBus.execute<
+      MemberWithdrawCommand,
+      string
+    >(new MemberWithdrawCommand(id));
+
+    return { id: memberId };
   }
 }

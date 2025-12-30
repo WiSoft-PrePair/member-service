@@ -10,10 +10,10 @@ import { EntityManager } from "@mikro-orm/core";
 
 @Injectable()
 @EventsHandler(MemberRegisterEvent)
-export class MemberRegisterHandler
+export class MemberRegisterEventHandler
   implements IEventHandler<MemberRegisterEvent>
 {
-  private readonly logger: Logger = new Logger(MemberRegisterHandler.name);
+  private readonly logger: Logger = new Logger(MemberRegisterEventHandler.name);
 
   constructor(
     @Inject(MEMBER_READ_REPOSITORY)

@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { Member, MemberRepository } from "@/domain/member";
-import { EntityManager } from "@mikro-orm/core";
+import { EntityManager } from "@mikro-orm/postgresql";
 import { MemberEntity } from "./entity";
 import { MemberMapper } from "./mapper";
 
@@ -17,5 +17,9 @@ export class MemberRepositoryImpl implements MemberRepository {
     this.em.persist(entity);
 
     return member;
+  }
+
+  withdraw(memberId: string): void {
+    this.em.nativeDelete(MemberEntity, { id: memberId });
   }
 }

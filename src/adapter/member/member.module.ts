@@ -1,24 +1,33 @@
 import { Module } from "@nestjs/common";
+import { CqrsModule } from "@nestjs/cqrs";
 import { MemberController } from "@/adapter/member/api";
 import {
   MemberMapper,
   MemberRepositoryImpl,
 } from "@/adapter/member/persistence";
-import { MEMBER_REPOSITORY, PASSWORD_ENCODER } from "@/domain/member";
-import { SecurePasswordEncoder } from "@/adapter/member/security";
-import { EventStoreModule } from "@/adapter/shared/event-store/event-store.module";
-import { RegisterMemberHandler } from "@/application/member/command";
-import { GetMemberHandler } from "@/application/member/query";
-import { MemberRegisterHandler } from "@/application/member/event";
-import { CqrsModule } from "@nestjs/cqrs";
 import {
   MEMBER_READ_REPOSITORY,
   MemberReadRepositoryImpl,
 } from "@/adapter/member/persistence/read";
+import { SecurePasswordEncoder } from "@/adapter/member/security";
+import { EventStoreModule } from "@/adapter/shared/event-store/event-store.module";
+import { MEMBER_REPOSITORY, PASSWORD_ENCODER } from "@/domain/member";
+import {
+  MemberRegisterCommandHandler,
+  WithdrawMemberCommandHandler,
+} from "@/application/member/command";
+import { GetMemberHandler } from "@/application/member/query";
+import {
+  MemberRegisterEventHandler,
+  MemberWithdrawEventHandler,
+} from "@/application/member/event";
 
-const CommandHandlers = [RegisterMemberHandler];
+const CommandHandlers = [
+  MemberRegisterCommandHandler,
+  WithdrawMemberCommandHandler,
+];
 const QueryHandlers = [GetMemberHandler];
-const EventHandlers = [MemberRegisterHandler];
+const EventHandlers = [MemberRegisterEventHandler, MemberWithdrawEventHandler];
 
 @Module({
   imports: [EventStoreModule, CqrsModule],
