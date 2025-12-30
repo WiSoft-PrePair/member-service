@@ -4,4 +4,4 @@ export * from "./password-encoder";
 export * from "./enums";
 export * from "./types";
 export * from "./value-objects";
-export * from "./exception";
+export * from "./exceptions";

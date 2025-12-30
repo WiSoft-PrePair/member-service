@@ -1,26 +1,28 @@
 import { Body, Controller, Post } from "@nestjs/common";
-import { Member } from "@/domain/member";
-import { RegisterMemberService } from "@/application/member";
 import { RegisterMemberRequestDto } from "@/adapter/member/api/dto";
+import { CommandBus } from "@nestjs/cqrs";
+import { RegisterMemberCommand } from "@/application/member/command";
 
 @Controller("members")
 export class MemberController {
-  constructor(private readonly registerMemberService: RegisterMemberService) {}
+  constructor(private readonly commandBus: CommandBus) {}
 
   @Post("register")
   async register(@Body() registerDto: RegisterMemberRequestDto) {
-    const member: Member =
-      await this.registerMemberService.register(registerDto);
+    const memberId: string = await this.commandBus.execute<
+      RegisterMemberCommand,
+      string
+    >(
+      new RegisterMemberCommand(
+        registerDto.email,
+        registerDto.password,
+        registerDto.job,
+        registerDto.nickname,
+        registerDto.notification,
+        registerDto.frequency,
+      ),
+    );
 
-    return {
-      id: member.id,
-      email: member.email.value,
-      nickname: member.nickname,
-      job: member.job,
-      notification: member.notification,
-      frequency: member.frequency,
-      point: member.point,
-      isPro: member.isPro,
-    };
+    return { id: memberId };
   }
 }

@@ -1,5 +1,5 @@
-import { Email } from "@/domain/member/value-objects";
-import { InvalidEmailException } from "@/domain/member/exception";
+import { Email }                 from "@/domain/member/value-objects";
+import { InvalidEmailException } from "@/domain/member/exceptions";
 
 describe("Email Test", () => {
   it.each([

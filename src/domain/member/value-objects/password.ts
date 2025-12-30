@@ -1,5 +1,5 @@
-import { InvalidPasswordException } from "@/domain/member/exception";
-import type { PasswordEncoder } from "@/domain/member/password-encoder";
+import { InvalidPasswordException } from "@/domain/member/exceptions";
+import type { PasswordEncoder }     from "@/domain/member/password-encoder";
 
 export class Password {
   private static readonly MIN_LENGTH = 8;
