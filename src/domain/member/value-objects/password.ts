@@ -1,4 +1,4 @@
-import { InvalidPasswordException } from "@/domain/member/exception";
+import { InvalidPasswordException } from "@/domain/member/exceptions";
 import type { PasswordEncoder } from "@/domain/member/password-encoder";
 
 export class Password {

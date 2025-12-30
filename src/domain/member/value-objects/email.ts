@@ -1,4 +1,4 @@
-import { InvalidEmailException } from "@/domain/member/exception";
+import { InvalidEmailException } from "@/domain/member/exceptions";
 
 export class Email {
   private static readonly EMAIL_PATTERN: RegExp =
