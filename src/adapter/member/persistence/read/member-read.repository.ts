@@ -13,6 +13,8 @@ export interface MemberReadRepository {
     limit?: number;
     offset?: number;
   }): Promise<MemberReadEntity[]>;
+
+  withdraw(id: string): Promise<number>;
 }
 
 @Injectable()
@@ -44,6 +46,10 @@ export class MemberReadRepositoryImpl implements MemberReadRepository {
         orderBy: { createdAt: "DESC" },
       },
     );
+  }
+
+  async withdraw(id: string): Promise<number> {
+    return await this.em.nativeDelete(MemberReadEntity, { id });
   }
 }
 

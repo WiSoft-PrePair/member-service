@@ -22,7 +22,7 @@ import {
 import { EntityManager, Transactional } from "@mikro-orm/core";
 import { MemberRegisterEvent } from "@/domain/member/events";
 
-export class RegisterMemberCommand implements ICommand {
+export class MemberRegisterCommand implements ICommand {
   constructor(
     public readonly email: string,
     public readonly password: string,
@@ -34,10 +34,11 @@ export class RegisterMemberCommand implements ICommand {
 }
 
 @Injectable()
-@CommandHandler(RegisterMemberCommand)
-export class RegisterMemberHandler
-  implements ICommandHandler<RegisterMemberCommand, string>
-{
+@CommandHandler(MemberRegisterCommand)
+export class MemberRegisterCommandHandler implements ICommandHandler<
+  MemberRegisterCommand,
+  string
+> {
   constructor(
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepository: MemberRepository,
@@ -50,7 +51,7 @@ export class RegisterMemberHandler
   ) {}
 
   @Transactional()
-  async execute(command: RegisterMemberCommand): Promise<string> {
+  async execute(command: MemberRegisterCommand): Promise<string> {
     const member: Member = Member.register(
       {
         email: command.email,
