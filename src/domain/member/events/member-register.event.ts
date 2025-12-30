@@ -5,6 +5,7 @@ export class MemberRegisterEvent implements IEvent {
   constructor(
     public readonly memberId: string,
     public readonly email: string,
+    public readonly password: string,
     public readonly job: string,
     public readonly nickname: string,
     public readonly notification: NotificationEnum,
