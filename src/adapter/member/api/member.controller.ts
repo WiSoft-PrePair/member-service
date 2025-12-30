@@ -1,9 +1,11 @@
 import { Body, Controller, Delete, Get, Param, Post } from "@nestjs/common";
 import { RegisterMemberRequestDto } from "@/adapter/member/api/dto";
 import { CommandBus, QueryBus } from "@nestjs/cqrs";
-import { MemberRegisterCommand } from "@/application/member/command";
+import {
+  MemberRegisterCommand,
+  MemberWithdrawCommand,
+} from "@/application/member/command";
 import { GetMemberQuery, GetMemberResult } from "@/application/member/query";
-import { MemberWithdrawCommand }                      from "@/application/member/command/member-withdraw.command";
 
 @Controller("members")
 export class MemberController {

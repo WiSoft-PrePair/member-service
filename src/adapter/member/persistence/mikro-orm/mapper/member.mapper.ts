@@ -1,4 +1,4 @@
-import { MemberEntity } from "@/adapter/member/persistence/mikro-orm/entity/member.entity";
+import { MemberEntity } from "../entity";
 import { Email, Member, Password } from "@/domain/member";
 import { Injectable } from "@nestjs/common";
 

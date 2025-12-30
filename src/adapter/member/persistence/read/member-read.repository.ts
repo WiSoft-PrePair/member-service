@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { MemberReadEntity } from "@/adapter/member/persistence/read/entity/member-read.entity";
+import { MemberReadEntity } from "./entity/member-read.entity";
 import { EntityManager } from "@mikro-orm/core";
 
 export interface MemberReadRepository {

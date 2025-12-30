@@ -2,8 +2,10 @@ import { IQuery, IQueryHandler, QueryHandler } from "@nestjs/cqrs";
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import {
   MEMBER_READ_REPOSITORY,
+  MemberReadEntity,
   type MemberReadRepository,
 } from "@/adapter/member/persistence/read";
+import { MemberEntity } from "@/adapter/member/persistence/mikro-orm/entity";
 
 export class GetMemberResult {
   constructor(
@@ -34,7 +36,8 @@ export class GetMemberHandler implements IQueryHandler<
   ) {}
 
   async execute(query: GetMemberQuery): Promise<GetMemberResult> {
-    const member = await this.memberReadRepository.findById(query.memberId);
+    const member: MemberReadEntity | null =
+      await this.memberReadRepository.findById(query.memberId);
 
     if (!member) {
       throw new NotFoundException(`Member not found: ${query.memberId}`);

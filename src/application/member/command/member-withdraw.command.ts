@@ -17,7 +17,7 @@ import {
   MemberReadEntity,
   type MemberReadRepository,
 } from "@/adapter/member/persistence/read";
-import { MemberWithdrawEvent } from "@/domain/member/events/member-withdraw.event";
+import { MemberWithdrawEvent } from "@/domain/member/events";
 
 export class MemberWithdrawCommand implements ICommand {
   constructor(public readonly id: string) {}
@@ -25,10 +25,9 @@ export class MemberWithdrawCommand implements ICommand {
 
 @Injectable()
 @CommandHandler(MemberWithdrawCommand)
-export class WithdrawMemberCommandHandler implements ICommandHandler<
-  MemberWithdrawCommand,
-  string
-> {
+export class WithdrawMemberCommandHandler
+  implements ICommandHandler<MemberWithdrawCommand, string>
+{
   constructor(
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepository: MemberRepository,

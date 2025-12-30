@@ -1,7 +1,10 @@
-import { RegisterMemberRequest } from "@/domain/member/types";
-import { FrequencyEnum, NotificationEnum } from "@/domain/member/enums";
-import { Member } from "@/domain/member/member";
-import { PasswordEncoder } from "@/domain/member";
+import {
+  RegisterMemberRequest,
+  FrequencyEnum,
+  NotificationEnum,
+  Member,
+  PasswordEncoder,
+} from "@/domain/member";
 
 describe("Member Test", () => {
   const registerRequest: RegisterMemberRequest = {

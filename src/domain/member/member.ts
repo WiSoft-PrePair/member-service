@@ -1,8 +1,8 @@
-import { FrequencyEnum, NotificationEnum } from "@/domain/member/enums";
-import { MemberType, RegisterMemberRequest } from "@/domain/member/types";
+import { FrequencyEnum, NotificationEnum } from "./enums";
+import { MemberType, RegisterMemberRequest } from "./types";
 import { randomUUID } from "crypto";
-import { Email, Password } from "@/domain/member/value-objects";
-import type { PasswordEncoder } from "@/domain/member/password-encoder";
+import { Email, Password } from "./value-objects";
+import type { PasswordEncoder } from "./password-encoder";
 
 export class Member {
   readonly id: string;
