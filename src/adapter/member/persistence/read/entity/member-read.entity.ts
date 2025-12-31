@@ -9,6 +9,9 @@ export class MemberReadEntity {
   email!: string;
 
   @Property()
+  password!: string;
+
+  @Property()
   job!: string;
 
   @Property()

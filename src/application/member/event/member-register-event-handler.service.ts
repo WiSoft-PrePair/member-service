@@ -21,7 +21,7 @@ export class MemberRegisterEventHandler
     private readonly em: EntityManager,
   ) {}
 
-  async handle(event: MemberRegisterEvent): Promise<void> {
+  handle(event: MemberRegisterEvent): void {
     this.logger.log(`회원가입 이벤트 시작: ${event.memberId}`);
 
     const readEntity = new MemberReadEntity();
@@ -35,9 +35,9 @@ export class MemberRegisterEventHandler
     readEntity.isPro = false;
     readEntity.createdAt = event.occurredAt;
     readEntity.updatedAt = event.occurredAt;
+    readEntity.password = event.password;
 
     this.memberReadRepository.save(readEntity);
-    await this.em.flush();
 
     this.logger.log(`회원가입 이벤트 종료: ${event.memberId}`);
   }

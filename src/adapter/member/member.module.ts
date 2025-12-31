@@ -50,6 +50,6 @@ const EventHandlers = [MemberRegisterEventHandler, MemberWithdrawEventHandler];
       useClass: SecurePasswordEncoder,
     },
   ],
-  exports: [MEMBER_REPOSITORY, MEMBER_READ_REPOSITORY],
+  exports: [MEMBER_REPOSITORY, MEMBER_READ_REPOSITORY, PASSWORD_ENCODER],
 })
 export class MemberModule {}

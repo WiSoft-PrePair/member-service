@@ -85,6 +85,7 @@ export class MemberRegisterCommandHandler
       new MemberRegisterEvent(
         member.id,
         member.email.value,
+        member.password.value,
         member.job,
         member.nickname,
         member.notification,
