@@ -20,3 +20,10 @@ export type RegisterMemberRequest = Omit<
   email: string;
   password: string;
 };
+
+export type UpdateMemberRequest = {
+  job?: string;
+  nickname?: string;
+  notification?: NotificationEnum;
+  frequency?: FrequencyEnum;
+};
