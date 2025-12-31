@@ -5,7 +5,6 @@ import {
   MemberReadEntity,
   type MemberReadRepository,
 } from "@/adapter/member/persistence/read";
-import { MemberEntity } from "@/adapter/member/persistence/mikro-orm/entity";
 
 export class GetMemberResult {
   constructor(
@@ -26,10 +25,9 @@ export class GetMemberQuery implements IQuery {
 
 @Injectable()
 @QueryHandler(GetMemberQuery)
-export class GetMemberHandler implements IQueryHandler<
-  GetMemberQuery,
-  GetMemberResult
-> {
+export class GetMemberHandler
+  implements IQueryHandler<GetMemberQuery, GetMemberResult>
+{
   constructor(
     @Inject(MEMBER_READ_REPOSITORY)
     private readonly memberReadRepository: MemberReadRepository,
