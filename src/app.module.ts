@@ -5,6 +5,9 @@ import { ConfigModule } from "@nestjs/config";
 import { envSchema } from "@/config/env.config";
 import { CqrsModule } from "@nestjs/cqrs";
 import { AuthModule } from "@/adapter/auth/auth.module";
+import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
+import { TransformResponseInterceptor } from "@/adapter/shared/api/interceptors/transform-response.interceptor";
+import { HttpExceptionFilter } from "@/adapter/shared/api/filters/http-exception.filter";
 
 @Module({
   imports: [
@@ -18,6 +21,15 @@ import { AuthModule } from "@/adapter/auth/auth.module";
     AuthModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TransformResponseInterceptor,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: HttpExceptionFilter,
+    },
+  ],
 })
 export class AppModule {}
