@@ -4,6 +4,7 @@ import { PersistenceModule } from "@/adapter/member/persistence/persistence.modu
 import { ConfigModule } from "@nestjs/config";
 import { envSchema } from "@/config/env.config";
 import { CqrsModule } from "@nestjs/cqrs";
+import { AuthModule } from "@/adapter/auth/auth.module";
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { CqrsModule } from "@nestjs/cqrs";
     CqrsModule.forRoot(),
     PersistenceModule,
     MemberModule,
+    AuthModule,
   ],
   controllers: [],
   providers: [],

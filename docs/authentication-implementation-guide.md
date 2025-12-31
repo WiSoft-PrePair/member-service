@@ -1,6 +1,6 @@
 # Authentication (Login) 구현 가이드
 
-> CQRS 패턴 미적용 - 전통적인 Service 패턴 기반 JWT 인증
+> CQRS 패턴 미적용 - 전통적인 Service 패턴 기반 JWT 인증 (Access Token + Refresh Token)
 
 ## 목차
 
@@ -26,6 +26,13 @@ Member 도메인과 달리, Authentication(로그인)은 **CQRS 패턴을 적용
 - 단순 조회 + 검증 로직 (Query만 필요)
 - Event Sourcing 불필요 (감사 추적 불필요)
 - 복잡한 비즈니스 로직 없음
+
+### 토큰 전략
+
+| 토큰 | 용도 | 만료 시간 | 저장 위치 |
+|-----|------|----------|----------|
+| **Access Token** | API 인증 | 15분 | 클라이언트 메모리 |
+| **Refresh Token** | Access Token 재발급 | 7일 | DB + HttpOnly Cookie |
 
 ### 사용 기술
 
@@ -61,7 +68,55 @@ Authentication은 Member 도메인의 인프라를 재사용합니다:
 ✅ Password Value Object    // 도메인 로직 (matches 메서드)
 ```
 
-### 3. 읽기 모델에 Password 추가
+### 3. Member 도메인 수정 불필요 (DDD 관점)
+
+로그인 기능 구현 시 **Member 애그리게이트를 수정하지 않습니다**.
+
+#### 이유
+
+| 관점 | 설명 |
+|-----|------|
+| **상태 변경 없음** | 로그인은 회원 데이터를 읽고 검증만 함. 회원의 상태(email, password, point 등)가 변경되지 않음 |
+| **Command가 아님** | CQRS 관점에서 로그인은 Query에 가까움 (자격 증명 검증 후 토큰 발급) |
+| **도메인 로직 재사용** | `Password` Value Object의 `fromHashed()`, `matches()` 메서드만 재사용 |
+| **관심사 분리** | Authentication은 Member 도메인의 핵심 비즈니스 로직이 아닌 인프라/어플리케이션 레벨 관심사 |
+
+#### 재사용하는 도메인 로직
+
+```typescript
+// Password Value Object (src/domain/member/value-objects/password.ts)
+Password.fromHashed(hashedPassword)  // DB에서 조회한 해시값으로 복원
+password.matches(plainPassword, encoder)  // 비밀번호 일치 여부 검증
+```
+
+#### Member 수정이 필요한 경우 (현재 요구사항 아님)
+
+다음 요구사항이 추가될 경우 Member 수정 고려:
+- 로그인 시 `lastLoginAt` 필드 업데이트
+- 로그인 실패 횟수 추적 (`loginFailCount`)
+- 계정 잠금 상태 관리 (`isLocked`)
+
+이 경우에도 `Member.recordLogin()`이나 `Member.incrementFailedAttempts()` 같은 **별도 Command로 분리**하는 것이 적절합니다.
+
+### 4. domain/auth 불필요 (예외 처리)
+
+Authentication은 도메인 레이어가 아니므로 **NestJS 내장 예외**를 사용합니다:
+
+```typescript
+// ❌ domain/auth/exceptions/ 생성하지 않음
+// ✅ NestJS 내장 예외 사용
+import { UnauthorizedException, NotFoundException } from '@nestjs/common';
+
+throw new NotFoundException('존재하지 않는 회원입니다.');
+throw new UnauthorizedException('이메일 또는 비밀번호가 일치하지 않습니다.');
+```
+
+**이유**:
+- 인증은 "비즈니스 도메인"이 아닌 인프라/어플리케이션 관심사
+- `DomainException` 상속이 의미상 맞지 않음
+- Service 패턴과 일관성 유지
+
+### 5. 읽기 모델에 Password 추가
 
 로그인 시 비밀번호 검증을 위해 `MemberReadEntity`에 `password` 필드를 추가했습니다.
 
@@ -98,30 +153,32 @@ readEntity.password = writeEntity.password;
 ### 계층별 역할
 
 ```
-┌─────────────────────────────────────────────┐
-│         Adapter Layer (API)                 │
-│    AuthController (POST /auth/login)        │
-└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│              Adapter Layer (API)                        │
+│  AuthController (login, refresh, logout, me)            │
+└─────────────────────────────────────────────────────────┘
                     ↓
-┌─────────────────────────────────────────────┐
-│      Application Layer (Service)            │
-│         AuthService.login()                 │
-│      (CQRS 미적용 - 일반 서비스)            │
-└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│           Application Layer (Service)                   │
+│  AuthService.login() / RefreshTokenService              │
+│           (CQRS 미적용 - 일반 서비스)                   │
+└─────────────────────────────────────────────────────────┘
                     ↓
-┌─────────────────────────────────────────────┐
-│       Domain Layer (재사용)                 │
-│  Password.matches() - 비밀번호 검증         │
-│  PasswordEncoder - bcrypt 검증              │
-└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│            Domain Layer (재사용)                        │
+│  Password.matches() - 비밀번호 검증                     │
+│  PasswordEncoder - bcrypt 검증                          │
+└─────────────────────────────────────────────────────────┘
                     ↓
-┌─────────────────────────────────────────────┐
-│    Infrastructure (Persistence)             │
-│    MemberReadRepository.findByEmail()       │
-└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│         Infrastructure (Persistence)                    │
+│  MemberReadRepository / RefreshTokenRepository          │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ### 인증 흐름
+
+#### 로그인 (Login)
 
 ```
 1. POST /auth/login { email, password }
@@ -136,7 +193,35 @@ readEntity.password = writeEntity.password;
    ↓
 6. JwtService.generateAccessToken(memberId, email)
    ↓
-7. { accessToken, expiresIn, memberId }
+7. RefreshTokenService.create(memberId)
+   ↓
+8. { accessToken, refreshToken, expiresIn, memberId }
+```
+
+#### 토큰 갱신 (Refresh)
+
+```
+1. POST /auth/refresh { refreshToken }
+   ↓
+2. RefreshTokenService.verify(refreshToken)
+   ↓
+3. MemberReadRepository.findById(memberId)
+   ↓
+4. RefreshTokenService.rotate(oldToken, memberId)  // 기존 토큰 삭제 + 새 토큰 발급
+   ↓
+5. JwtService.generateAccessToken(memberId, email)
+   ↓
+6. { accessToken, refreshToken, expiresIn }
+```
+
+#### 로그아웃 (Logout)
+
+```
+1. POST /auth/logout { refreshToken }
+   ↓
+2. RefreshTokenService.revoke(refreshToken)
+   ↓
+3. { success: true }
 ```
 
 ---
@@ -145,14 +230,9 @@ readEntity.password = writeEntity.password;
 
 ```
 src/
-├── domain/auth/
-│   ├── exceptions/
-│   │   ├── invalid-credentials.exception.ts    # 인증 실패 예외
-│   │   └── member-not-found.exception.ts       # 회원 미존재 예외
-│   └── index.ts
-│
 ├── application/auth/
-│   ├── auth.service.ts                         # 일반 Service (CQRS 미적용)
+│   ├── auth.service.ts                         # 로그인 서비스 (CQRS 미적용)
+│   ├── refresh-token.service.ts                # Refresh Token 관리
 │   ├── types/
 │   │   └── login-result.ts                     # { memberId, email }
 │   └── index.ts
@@ -162,10 +242,18 @@ src/
     ├── api/
     │   ├── auth.controller.ts                  # REST API
     │   ├── dto/
-    │   │   ├── login-request.dto.ts            # 입력 DTO
-    │   │   └── login-response.dto.ts           # 응답 DTO
+    │   │   ├── login-request.dto.ts            # 로그인 입력
+    │   │   ├── login-response.dto.ts           # 로그인 응답
+    │   │   ├── refresh-request.dto.ts          # 토큰 갱신 입력
+    │   │   ├── refresh-response.dto.ts         # 토큰 갱신 응답
+    │   │   └── logout-request.dto.ts           # 로그아웃 입력
     │   └── decorators/
     │       └── current-user.decorator.ts       # @CurrentUser() 데코레이터
+    ├── persistence/
+    │   ├── entity/
+    │   │   └── refresh-token.entity.ts         # Refresh Token 엔티티
+    │   ├── refresh-token.repository.ts         # Repository 인터페이스
+    │   └── refresh-token.repository-impl.ts    # Repository 구현체
     └── security/
         ├── jwt.service.ts                      # JWT 발급/검증
         ├── jwt.strategy.ts                     # Passport JWT Strategy
@@ -177,48 +265,14 @@ src/
 
 ## 상세 구현
 
-### 1. Domain Layer
+### 1. Application Layer
 
-#### 예외 정의
-
-**파일**: `src/domain/auth/exceptions/invalid-credentials.exception.ts`
-
-```typescript
-import { DomainException } from '@/adapter/shared/exception/domain.exception';
-
-export class InvalidCredentialsException extends DomainException {
-  constructor() {
-    super('이메일 또는 비밀번호가 일치하지 않습니다.');
-  }
-}
-```
-
-**파일**: `src/domain/auth/exceptions/member-not-found.exception.ts`
-
-```typescript
-import { DomainException } from '@/adapter/shared/exception/domain.exception';
-
-export class MemberNotFoundException extends DomainException {
-  constructor() {
-    super('존재하지 않는 회원입니다.');
-  }
-}
-```
-
----
-
-### 2. Application Layer
-
-#### AuthService (일반 서비스)
+#### AuthService (로그인 서비스)
 
 **파일**: `src/application/auth/auth.service.ts`
 
 ```typescript
-import { Inject, Injectable } from '@nestjs/common';
-import {
-  InvalidCredentialsException,
-  MemberNotFoundException,
-} from '@/domain/auth';
+import { Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import {
   Password,
   PASSWORD_ENCODER,
@@ -253,7 +307,7 @@ export class AuthService {
     // 1. 이메일로 회원 조회
     const member = await this.memberReadRepository.findByEmail(request.email);
     if (!member) {
-      throw new MemberNotFoundException();
+      throw new NotFoundException('존재하지 않는 회원입니다.');
     }
 
     // 2. 비밀번호 검증 (도메인 로직 재사용)
@@ -261,7 +315,7 @@ export class AuthService {
     const isValid = password.matches(request.password, this.passwordEncoder);
 
     if (!isValid) {
-      throw new InvalidCredentialsException();
+      throw new UnauthorizedException('이메일 또는 비밀번호가 일치하지 않습니다.');
     }
 
     // 3. 로그인 성공 - memberId와 email 반환
@@ -273,11 +327,185 @@ export class AuthService {
 }
 ```
 
-**핵심 포인트**:
-- `@Inject(MEMBER_READ_REPOSITORY)`: 읽기 저장소 주입
-- `@Inject(PASSWORD_ENCODER)`: 비밀번호 인코더 주입 (MemberModule에서 제공)
-- `Password.fromHashed()`: 도메인 로직 재사용
-- `password.matches()`: bcrypt 검증 위임
+#### RefreshTokenService
+
+**파일**: `src/application/auth/refresh-token.service.ts`
+
+```typescript
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { randomBytes, randomUUID } from 'crypto';
+import {
+  REFRESH_TOKEN_REPOSITORY,
+  type RefreshTokenRepository,
+} from '@/adapter/auth/persistence/refresh-token.repository';
+
+@Injectable()
+export class RefreshTokenService {
+  // Refresh Token 만료 시간: 7일
+  private readonly REFRESH_TOKEN_EXPIRES_IN_MS = 7 * 24 * 60 * 60 * 1000;
+
+  constructor(
+    @Inject(REFRESH_TOKEN_REPOSITORY)
+    private readonly refreshTokenRepository: RefreshTokenRepository,
+  ) {}
+
+  /**
+   * 새 Refresh Token 생성
+   */
+  async create(memberId: string): Promise<string> {
+    const token = randomBytes(64).toString('hex');
+    const expiresAt = new Date(Date.now() + this.REFRESH_TOKEN_EXPIRES_IN_MS);
+
+    await this.refreshTokenRepository.save({
+      id: randomUUID(),
+      memberId,
+      token,
+      expiresAt,
+      createdAt: new Date(),
+    });
+
+    return token;
+  }
+
+  /**
+   * Refresh Token 검증
+   * @returns memberId
+   */
+  async verify(token: string): Promise<string> {
+    const refreshToken = await this.refreshTokenRepository.findByToken(token);
+
+    if (!refreshToken) {
+      throw new UnauthorizedException('유효하지 않은 Refresh Token입니다.');
+    }
+
+    if (refreshToken.expiresAt < new Date()) {
+      // 만료된 토큰 삭제
+      await this.refreshTokenRepository.delete(refreshToken.id);
+      throw new UnauthorizedException('만료된 Refresh Token입니다.');
+    }
+
+    return refreshToken.memberId;
+  }
+
+  /**
+   * Refresh Token 갱신 (Rotation)
+   * - 기존 토큰 삭제 후 새 토큰 발급
+   * - Refresh Token Rotation으로 보안 강화
+   */
+  async rotate(oldToken: string, memberId: string): Promise<string> {
+    // 기존 토큰 삭제
+    await this.refreshTokenRepository.deleteByToken(oldToken);
+
+    // 새 토큰 발급
+    return this.create(memberId);
+  }
+
+  /**
+   * Refresh Token 폐기 (로그아웃)
+   */
+  async revoke(token: string): Promise<void> {
+    await this.refreshTokenRepository.deleteByToken(token);
+  }
+
+  /**
+   * 특정 회원의 모든 Refresh Token 폐기 (전체 로그아웃)
+   */
+  async revokeAll(memberId: string): Promise<void> {
+    await this.refreshTokenRepository.deleteByMemberId(memberId);
+  }
+}
+```
+
+---
+
+### 2. Adapter Layer - Persistence
+
+#### RefreshToken Entity
+
+**파일**: `src/adapter/auth/persistence/entity/refresh-token.entity.ts`
+
+```typescript
+import { Entity, PrimaryKey, Property } from '@mikro-orm/core';
+
+@Entity({ tableName: 'refresh_tokens' })
+export class RefreshTokenEntity {
+  @PrimaryKey()
+  id!: string;
+
+  @Property()
+  memberId!: string;
+
+  @Property({ unique: true })
+  token!: string;
+
+  @Property()
+  expiresAt!: Date;
+
+  @Property()
+  createdAt!: Date;
+}
+```
+
+#### RefreshToken Repository Interface
+
+**파일**: `src/adapter/auth/persistence/refresh-token.repository.ts`
+
+```typescript
+import type { RefreshTokenEntity } from './entity/refresh-token.entity';
+
+export const REFRESH_TOKEN_REPOSITORY = Symbol('REFRESH_TOKEN_REPOSITORY');
+
+export interface RefreshTokenRepository {
+  save(entity: RefreshTokenEntity): Promise<void>;
+  findByToken(token: string): Promise<RefreshTokenEntity | null>;
+  delete(id: string): Promise<void>;
+  deleteByToken(token: string): Promise<void>;
+  deleteByMemberId(memberId: string): Promise<void>;
+}
+```
+
+#### RefreshToken Repository Implementation
+
+**파일**: `src/adapter/auth/persistence/refresh-token.repository-impl.ts`
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import { EntityManager } from '@mikro-orm/postgresql';
+import { RefreshTokenEntity } from './entity/refresh-token.entity';
+import type { RefreshTokenRepository } from './refresh-token.repository';
+
+@Injectable()
+export class RefreshTokenRepositoryImpl implements RefreshTokenRepository {
+  constructor(private readonly em: EntityManager) {}
+
+  async save(entity: RefreshTokenEntity): Promise<void> {
+    const refreshToken = this.em.create(RefreshTokenEntity, entity);
+    await this.em.persistAndFlush(refreshToken);
+  }
+
+  async findByToken(token: string): Promise<RefreshTokenEntity | null> {
+    return this.em.findOne(RefreshTokenEntity, { token });
+  }
+
+  async delete(id: string): Promise<void> {
+    const entity = await this.em.findOne(RefreshTokenEntity, { id });
+    if (entity) {
+      await this.em.removeAndFlush(entity);
+    }
+  }
+
+  async deleteByToken(token: string): Promise<void> {
+    const entity = await this.em.findOne(RefreshTokenEntity, { token });
+    if (entity) {
+      await this.em.removeAndFlush(entity);
+    }
+  }
+
+  async deleteByMemberId(memberId: string): Promise<void> {
+    await this.em.nativeDelete(RefreshTokenEntity, { memberId });
+  }
+}
+```
 
 ---
 
@@ -289,7 +517,8 @@ export class AuthService {
 
 ```typescript
 import { Injectable } from '@nestjs/common';
-import { JwtService as NestJwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { JwtService as NestJwtService } from '@nestjs/auth';
 
 export interface JwtPayload {
   sub: string; // memberId
@@ -303,7 +532,16 @@ export interface TokenResponse {
 
 @Injectable()
 export class JwtService {
-  constructor(private readonly jwtService: NestJwtService) {}
+  private readonly accessTokenExpiresIn: number;
+
+  constructor(
+    private readonly jwtService: NestJwtService,
+    private readonly configService: ConfigService,
+  ) {
+    // JWT_ACCESS_TOKEN_EXPIRES_IN 환경 변수에서 초 단위로 파싱 (기본값: 900초 = 15분)
+    const expiresIn = this.configService.get<string>('JWT_ACCESS_TOKEN_EXPIRES_IN', '15m');
+    this.accessTokenExpiresIn = this.parseExpiresIn(expiresIn);
+  }
 
   /**
    * Access Token 발급
@@ -318,7 +556,7 @@ export class JwtService {
 
     return {
       accessToken,
-      expiresIn: 3600, // 1시간 (초 단위)
+      expiresIn: this.accessTokenExpiresIn,
     };
   }
 
@@ -327,6 +565,28 @@ export class JwtService {
    */
   verify(token: string): JwtPayload {
     return this.jwtService.verify<JwtPayload>(token);
+  }
+
+  /**
+   * 만료 시간 문자열을 초 단위로 변환
+   * @example '15m' → 900, '1h' → 3600, '7d' → 604800
+   */
+  private parseExpiresIn(expiresIn: string): number {
+    const match = expiresIn.match(/^(\d+)([smhd])$/);
+    if (!match) {
+      return 900; // 기본값 15분
+    }
+
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+
+    switch (unit) {
+      case 's': return value;
+      case 'm': return value * 60;
+      case 'h': return value * 60 * 60;
+      case 'd': return value * 60 * 60 * 24;
+      default: return 900;
+    }
   }
 }
 ```
@@ -339,8 +599,8 @@ export class JwtService {
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy } from 'passport-jwt';
-import type { JwtPayload } from './jwt.service';
+import { ExtractJwt, Strategy } from 'passport-auth';
+import type { JwtPayload } from './auth.service';
 
 /**
  * JWT 인증 전략
@@ -384,7 +644,7 @@ import { AuthGuard } from '@nestjs/passport';
  * - Authorization 헤더 검증 후 req.user 주입
  */
 @Injectable()
-export class JwtAuthGuard extends AuthGuard('jwt') {
+export class JwtAuthGuard extends AuthGuard('auth') {
   canActivate(context: ExecutionContext) {
     return super.canActivate(context);
   }
@@ -395,15 +655,104 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
 ### 4. Adapter Layer - API
 
+#### DTOs
+
+**파일**: `src/adapter/auth/api/dto/login-request.dto.ts`
+
+```typescript
+import { IsEmail, IsString, MinLength } from 'class-validator';
+
+export class LoginRequestDto {
+  @IsEmail()
+  email!: string;
+
+  @IsString()
+  @MinLength(8)
+  password!: string;
+}
+```
+
+**파일**: `src/adapter/auth/api/dto/login-response.dto.ts`
+
+```typescript
+export class LoginResponseDto {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  memberId: string;
+
+  constructor(
+    accessToken: string,
+    refreshToken: string,
+    expiresIn: number,
+    memberId: string,
+  ) {
+    this.accessToken = accessToken;
+    this.refreshToken = refreshToken;
+    this.expiresIn = expiresIn;
+    this.memberId = memberId;
+  }
+}
+```
+
+**파일**: `src/adapter/auth/api/dto/refresh-request.dto.ts`
+
+```typescript
+import { IsString } from 'class-validator';
+
+export class RefreshRequestDto {
+  @IsString()
+  refreshToken!: string;
+}
+```
+
+**파일**: `src/adapter/auth/api/dto/refresh-response.dto.ts`
+
+```typescript
+export class RefreshResponseDto {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+
+  constructor(accessToken: string, refreshToken: string, expiresIn: number) {
+    this.accessToken = accessToken;
+    this.refreshToken = refreshToken;
+    this.expiresIn = expiresIn;
+  }
+}
+```
+
+**파일**: `src/adapter/auth/api/dto/logout-request.dto.ts`
+
+```typescript
+import { IsString } from 'class-validator';
+
+export class LogoutRequestDto {
+  @IsString()
+  refreshToken!: string;
+}
+```
+
 #### Controller
 
 **파일**: `src/adapter/auth/api/auth.controller.ts`
 
 ```typescript
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Post, UseGuards } from '@nestjs/common';
 import { AuthService } from '@/application/auth';
+import { RefreshTokenService } from '@/application/auth/refresh-token.service';
+import {
+  MEMBER_READ_REPOSITORY,
+  type MemberReadRepository,
+} from '@/adapter/member/persistence/read/member-read.repository';
 import { JwtService, JwtAuthGuard } from '../security';
-import { LoginRequestDto, LoginResponseDto } from './dto';
+import {
+  LoginRequestDto,
+  LoginResponseDto,
+  RefreshRequestDto,
+  RefreshResponseDto,
+  LogoutRequestDto,
+} from './dto';
 import { CurrentUser } from './decorators/current-user.decorator';
 
 /**
@@ -414,7 +763,10 @@ import { CurrentUser } from './decorators/current-user.decorator';
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
+    private readonly refreshTokenService: RefreshTokenService,
     private readonly jwtService: JwtService,
+    @Inject(MEMBER_READ_REPOSITORY)
+    private readonly memberReadRepository: MemberReadRepository,
   ) {}
 
   /**
@@ -429,22 +781,68 @@ export class AuthController {
       password: dto.password,
     });
 
-    // 2. JWT 토큰 발급
-    const token = this.jwtService.generateAccessToken(
+    // 2. Access Token 발급
+    const accessToken = this.jwtService.generateAccessToken(
       loginResult.memberId,
       loginResult.email,
     );
 
-    // 3. 응답 DTO 반환
+    // 3. Refresh Token 발급
+    const refreshToken = await this.refreshTokenService.create(loginResult.memberId);
+
+    // 4. 응답 DTO 반환
     return new LoginResponseDto(
-      token.accessToken,
-      token.expiresIn,
+      accessToken.accessToken,
+      refreshToken,
+      accessToken.expiresIn,
       loginResult.memberId,
     );
   }
 
   /**
-   * 현재 로그인한 사용자 정보 조회 (예제)
+   * 토큰 갱신
+   * POST /auth/refresh
+   */
+  @Post('refresh')
+  async refresh(@Body() dto: RefreshRequestDto): Promise<RefreshResponseDto> {
+    // 1. Refresh Token 검증
+    const memberId = await this.refreshTokenService.verify(dto.refreshToken);
+
+    // 2. 회원 정보 조회
+    const member = await this.memberReadRepository.findById(memberId);
+    if (!member) {
+      throw new Error('회원 정보를 찾을 수 없습니다.');
+    }
+
+    // 3. Refresh Token Rotation (기존 토큰 삭제 + 새 토큰 발급)
+    const newRefreshToken = await this.refreshTokenService.rotate(
+      dto.refreshToken,
+      memberId,
+    );
+
+    // 4. 새 Access Token 발급
+    const accessToken = this.jwtService.generateAccessToken(member.id, member.email);
+
+    // 5. 응답 반환
+    return new RefreshResponseDto(
+      accessToken.accessToken,
+      newRefreshToken,
+      accessToken.expiresIn,
+    );
+  }
+
+  /**
+   * 로그아웃
+   * POST /auth/logout
+   */
+  @Post('logout')
+  async logout(@Body() dto: LogoutRequestDto): Promise<{ success: boolean }> {
+    await this.refreshTokenService.revoke(dto.refreshToken);
+    return { success: true };
+  }
+
+  /**
+   * 현재 로그인한 사용자 정보 조회
    * GET /auth/me
    */
   @Get('me')
@@ -495,17 +893,23 @@ export const CurrentUser = createParamDecorator(
 ```typescript
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { JwtModule } from '@nestjs/jwt';
+import { JwtModule } from '@nestjs/auth';
 import { PassportModule } from '@nestjs/passport';
-import { AuthService } from '@/application/auth';
+import { MikroOrmModule } from '@mikro-orm/nestjs';
+import { AuthService, RefreshTokenService } from '@/application/auth';
 import { MemberModule } from '../member/member.module';
 import { AuthController } from './api/auth.controller';
+import { RefreshTokenEntity } from './persistence/entity/refresh-token.entity';
+import {
+  REFRESH_TOKEN_REPOSITORY,
+} from './persistence/refresh-token.repository';
+import { RefreshTokenRepositoryImpl } from './persistence/refresh-token.repository.impl';
 import { JwtService, JwtStrategy } from './security';
 
 @Module({
   imports: [
     // Passport 기본 설정
-    PassportModule.register({ defaultStrategy: 'jwt' }),
+    PassportModule.register({ defaultStrategy: 'auth' }),
 
     // JWT 모듈 설정 (ConfigService 주입)
     JwtModule.registerAsync({
@@ -514,10 +918,13 @@ import { JwtService, JwtStrategy } from './security';
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),
         signOptions: {
-          expiresIn: configService.get<string>('JWT_EXPIRES_IN'),
+          expiresIn: configService.get<string>('JWT_ACCESS_TOKEN_EXPIRES_IN', '15m'),
         },
       }),
     }),
+
+    // MikroORM - RefreshToken 엔티티 등록
+    MikroOrmModule.forFeature([RefreshTokenEntity]),
 
     // MemberReadRepository, PasswordEncoder 사용을 위해 import
     MemberModule,
@@ -526,12 +933,19 @@ import { JwtService, JwtStrategy } from './security';
   providers: [
     // Application Service (CQRS 미적용)
     AuthService,
+    RefreshTokenService,
+
+    // Repository
+    {
+      provide: REFRESH_TOKEN_REPOSITORY,
+      useClass: RefreshTokenRepositoryImpl,
+    },
 
     // Security
     JwtService,
     JwtStrategy,
   ],
-  exports: [JwtService], // 다른 모듈에서 JWT 검증이 필요한 경우
+  exports: [JwtService, JwtAuthGuard], // 다른 모듈에서 JWT 검증이 필요한 경우
 })
 export class AuthModule {}
 ```
@@ -542,10 +956,13 @@ AuthModule
   ├─ imports
   │   ├─ PassportModule (전략: jwt)
   │   ├─ JwtModule (secret, expiresIn from ConfigService)
+  │   ├─ MikroOrmModule.forFeature([RefreshTokenEntity])
   │   └─ MemberModule
   │       └─ exports: [PASSWORD_ENCODER, MEMBER_READ_REPOSITORY]
   └─ providers
       ├─ AuthService (← PASSWORD_ENCODER, MEMBER_READ_REPOSITORY)
+      ├─ RefreshTokenService (← REFRESH_TOKEN_REPOSITORY)
+      ├─ RefreshTokenRepositoryImpl
       ├─ JwtService
       └─ JwtStrategy (← ConfigService)
 ```
@@ -575,8 +992,11 @@ export const envSchema = z.object({
   POSTGRES_USER: z.string(),
   POSTGRES_PASSWORD: z.string(),
   POSTGRES_DB: z.string(),
+
+  // JWT 설정
   JWT_SECRET: z.string().min(32, "JWT_SECRET은 최소 32자 이상이어야 합니다."),
-  JWT_EXPIRES_IN: z.string().default("1h"),
+  JWT_ACCESS_TOKEN_EXPIRES_IN: z.string().default("15m"),  // Access Token 만료 시간
+  JWT_REFRESH_TOKEN_EXPIRES_IN: z.string().default("7d"),  // Refresh Token 만료 시간
 });
 ```
 
@@ -595,7 +1015,8 @@ POSTGRES_PORT=65432
 
 # JWT Authentication
 JWT_SECRET=your-super-secret-key-change-this-in-production-minimum-32-characters
-JWT_EXPIRES_IN=1h
+JWT_ACCESS_TOKEN_EXPIRES_IN=15m
+JWT_REFRESH_TOKEN_EXPIRES_IN=7d
 ```
 
 ---
@@ -623,8 +1044,9 @@ HTTP/1.1 200 OK
 Content-Type: application/json
 
 {
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1NTBlODQwMC1lMjliLTQxZDQtYTcxNi00NDY2NTU0NDAwMDAiLCJlbWFpbCI6InVzZXJAZXhhbXBsZS5jb20iLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MTcwMDAwMzYwMH0.signature",
-  "expiresIn": 3600,
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refreshToken": "a1b2c3d4e5f6...",
+  "expiresIn": 900,
   "memberId": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
@@ -632,19 +1054,86 @@ Content-Type: application/json
 #### Response (Error)
 
 ```http
-HTTP/1.1 400 Bad Request
+HTTP/1.1 401 Unauthorized
 Content-Type: application/json
 
 {
-  "statusCode": 400,
+  "statusCode": 401,
   "message": "이메일 또는 비밀번호가 일치하지 않습니다.",
-  "error": "Bad Request"
+  "error": "Unauthorized"
 }
 ```
 
 ---
 
-### 2. 현재 사용자 조회
+### 2. 토큰 갱신
+
+#### Request
+
+```http
+POST /auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "a1b2c3d4e5f6..."
+}
+```
+
+#### Response (Success)
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refreshToken": "x7y8z9...",
+  "expiresIn": 900
+}
+```
+
+#### Response (Error)
+
+```http
+HTTP/1.1 401 Unauthorized
+Content-Type: application/json
+
+{
+  "statusCode": 401,
+  "message": "만료된 Refresh Token입니다.",
+  "error": "Unauthorized"
+}
+```
+
+---
+
+### 3. 로그아웃
+
+#### Request
+
+```http
+POST /auth/logout
+Content-Type: application/json
+
+{
+  "refreshToken": "a1b2c3d4e5f6..."
+}
+```
+
+#### Response (Success)
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "success": true
+}
+```
+
+---
+
+### 4. 현재 사용자 조회
 
 #### Request
 
@@ -672,8 +1161,8 @@ Content-Type: application/json
 ### 1. 의존성 설치
 
 ```bash
-npm install @nestjs/jwt @nestjs/passport passport passport-jwt
-npm install -D @types/passport-jwt
+npm install @nestjs/auth @nestjs/passport passport passport-auth
+npm install -D @types/passport-auth
 ```
 
 ### 2. 환경 변수 설정
@@ -682,7 +1171,8 @@ npm install -D @types/passport-jwt
 
 ```env
 JWT_SECRET=your-super-secret-key-change-this-in-production-minimum-32-characters
-JWT_EXPIRES_IN=1h
+JWT_ACCESS_TOKEN_EXPIRES_IN=15m
+JWT_REFRESH_TOKEN_EXPIRES_IN=7d
 ```
 
 ### 3. 서버 실행
@@ -719,14 +1209,41 @@ curl -X POST http://localhost:3000/auth/login \
   }'
 ```
 
+응답:
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refreshToken": "a1b2c3d4e5f6...",
+  "expiresIn": 900,
+  "memberId": "..."
+}
+```
+
 #### (3) 인증된 요청
 
 ```bash
-# 응답에서 받은 accessToken 사용
 TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 
 curl http://localhost:3000/auth/me \
   -H "Authorization: Bearer $TOKEN"
+```
+
+#### (4) 토큰 갱신
+
+```bash
+REFRESH_TOKEN="a1b2c3d4e5f6..."
+
+curl -X POST http://localhost:3000/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d "{\"refreshToken\": \"$REFRESH_TOKEN\"}"
+```
+
+#### (5) 로그아웃
+
+```bash
+curl -X POST http://localhost:3000/auth/logout \
+  -H "Content-Type: application/json" \
+  -d "{\"refreshToken\": \"$REFRESH_TOKEN\"}"
 ```
 
 ---
@@ -771,89 +1288,12 @@ export class ArticleController {
 
 ## 확장 가이드
 
-### 1. Refresh Token 구현
+### 1. 로그아웃 시 Access Token Blacklist (Redis)
 
-**목적**: Access Token 만료 시 재발급
+**목적**: Access Token 즉시 무효화 (선택적)
 
-#### (1) RefreshToken Entity 추가
-
-```typescript
-// src/adapter/auth/persistence/entity/refresh-token.entity.ts
-@Entity({ tableName: 'refresh_tokens' })
-export class RefreshTokenEntity {
-  @PrimaryKey()
-  id!: string;
-
-  @Property()
-  memberId!: string;
-
-  @Property()
-  token!: string;
-
-  @Property()
-  expiresAt!: Date;
-
-  @Property()
-  createdAt!: Date;
-}
-```
-
-#### (2) RefreshToken Service
-
-```typescript
-// src/application/auth/refresh-token.service.ts
-@Injectable()
-export class RefreshTokenService {
-  async create(memberId: string): Promise<string> {
-    const token = randomBytes(64).toString('hex');
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7일
-
-    await this.repository.save({
-      id: randomUUID(),
-      memberId,
-      token,
-      expiresAt,
-      createdAt: new Date(),
-    });
-
-    return token;
-  }
-
-  async verify(token: string): Promise<string> {
-    const refreshToken = await this.repository.findByToken(token);
-
-    if (!refreshToken || refreshToken.expiresAt < new Date()) {
-      throw new InvalidRefreshTokenException();
-    }
-
-    return refreshToken.memberId;
-  }
-}
-```
-
-#### (3) Controller 확장
-
-```typescript
-// src/adapter/auth/api/auth.controller.ts
-@Post('refresh')
-async refresh(@Body() dto: RefreshTokenDto) {
-  const memberId = await this.refreshTokenService.verify(dto.refreshToken);
-  const member = await this.memberReadRepository.findById(memberId);
-
-  const newAccessToken = this.jwtService.generateAccessToken(
-    member.id,
-    member.email,
-  );
-
-  return { accessToken: newAccessToken.accessToken };
-}
-```
-
----
-
-### 2. 로그아웃 (Token Blacklist)
-
-**목적**: 토큰 무효화
+현재 구현은 Refresh Token만 폐기합니다. Access Token은 만료될 때까지 유효합니다.
+더 강력한 보안이 필요한 경우 Redis 기반 Blacklist를 추가할 수 있습니다.
 
 #### (1) Redis 연동
 
@@ -888,9 +1328,9 @@ export class TokenBlacklistService {
 #### (3) Guard 수정
 
 ```typescript
-// src/adapter/auth/security/jwt-auth.guard.ts
+// src/adapter/auth/security/auth-auth.guard.ts
 @Injectable()
-export class JwtAuthGuard extends AuthGuard('jwt') {
+export class JwtAuthGuard extends AuthGuard('auth') {
   constructor(private readonly blacklistService: TokenBlacklistService) {
     super();
   }
@@ -910,7 +1350,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
 ---
 
-### 3. Rate Limiting
+### 2. Rate Limiting
 
 **목적**: Brute Force 공격 방지
 
@@ -956,7 +1396,7 @@ export class AuthController {
 
 ---
 
-### 4. OAuth 2.0 통합 (Google, Kakao)
+### 3. OAuth 2.0 통합 (Google, Kakao)
 
 **목적**: 소셜 로그인
 
@@ -1022,7 +1462,7 @@ async googleAuthCallback(@Req() req) {
 
 ---
 
-### 5. 비밀번호 재설정
+### 4. 비밀번호 재설정
 
 **목적**: 이메일 기반 비밀번호 재설정
 
@@ -1054,7 +1494,7 @@ export class PasswordResetService {
     const resetToken = await this.resetTokenRepository.findByToken(token);
 
     if (!resetToken || resetToken.expiresAt < new Date()) {
-      throw new InvalidResetTokenException();
+      throw new UnauthorizedException('유효하지 않은 토큰입니다.');
     }
 
     const member = await this.memberRepository.findById(resetToken.memberId);
@@ -1090,14 +1530,22 @@ JWT_SECRET=a8f5f167f44f4964e6c998dee827110c03d76f8ef2c5e8f4c9b3d0e2e9a4f8d1
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-### 2. Password 저장
+### 2. Refresh Token 보안
+
+- ✅ Refresh Token Rotation 적용 (토큰 갱신 시 기존 토큰 폐기)
+- ✅ DB에 저장하여 서버 측에서 관리
+- ✅ 만료 시간 설정 (7일)
+- ❌ 클라이언트 LocalStorage 저장 금지 (XSS 취약)
+- 💡 권장: HttpOnly Cookie로 전송
+
+### 3. Password 저장
 
 - ✅ bcrypt (현재 사용 중)
 - ✅ salt rounds: 10 (적절)
 - ❌ 평문 저장 금지
 - ❌ MD5/SHA1 사용 금지
 
-### 3. HTTPS 사용
+### 4. HTTPS 사용
 
 운영 환경에서는 반드시 HTTPS 사용:
 ```typescript
@@ -1110,7 +1558,7 @@ if (process.env.NODE_ENV === 'prod') {
 }
 ```
 
-### 4. CORS 설정
+### 5. CORS 설정
 
 ```typescript
 // main.ts
@@ -1130,9 +1578,10 @@ app.enableCors({
 **원인**: JWT 토큰이 유효하지 않거나 만료됨
 
 **해결**:
-1. 토큰 만료 시간 확인 (`JWT_EXPIRES_IN`)
+1. 토큰 만료 시간 확인 (`JWT_ACCESS_TOKEN_EXPIRES_IN`)
 2. 토큰 형식 확인 (`Authorization: Bearer <token>`)
 3. JWT_SECRET 일치 여부 확인
+4. Access Token 만료 시 `/auth/refresh`로 갱신
 
 ### Q2. 로그인 시 비밀번호 불일치
 
@@ -1156,6 +1605,14 @@ FROM member m
 WHERE mr.id = m.id;
 ```
 
+### Q4. Refresh Token 만료 에러
+
+**원인**: Refresh Token이 7일 지나서 만료됨
+
+**해결**:
+1. 사용자에게 다시 로그인 요청
+2. 만료 시간 조정 필요 시 `JWT_REFRESH_TOKEN_EXPIRES_IN` 환경 변수 수정
+
 ---
 
 ## 참고 자료
@@ -1164,3 +1621,4 @@ WHERE mr.id = m.id;
 - [Passport JWT Strategy](http://www.passportjs.org/packages/passport-jwt/)
 - [JWT Best Practices](https://tools.ietf.org/html/rfc8725)
 - [OWASP Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)
+- [Refresh Token Rotation](https://auth0.com/blog/refresh-tokens-what-are-they-and-when-to-use-them/)
