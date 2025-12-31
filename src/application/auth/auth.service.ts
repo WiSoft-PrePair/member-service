@@ -15,6 +15,7 @@ import {
   type PasswordEncoder,
 } from "@/domain/member";
 import { LoginRequestDto } from "@/adapter/auth/api/dto";
+import { EntityManager } from "@mikro-orm/postgresql";
 
 @Injectable()
 export class AuthService {
@@ -23,6 +24,7 @@ export class AuthService {
     private readonly memberReadRepository: MemberReadRepository,
     @Inject(PASSWORD_ENCODER)
     private readonly passwordEncoder: PasswordEncoder,
+    private readonly em: EntityManager,
   ) {}
 
   async login(request: LoginRequestDto) {
@@ -44,6 +46,15 @@ export class AuthService {
         `이메일 또는 비밀번호가 일치하지 않습니다`,
       );
     }
+
+    const today: string = new Date().toISOString().slice(0, 10);
+    member.activity = member.activity ?? [];
+
+    if (!member.activity.includes(today)) {
+      member.activity.push(today);
+    }
+
+    await this.em.flush();
 
     return {
       memberId: member.id,

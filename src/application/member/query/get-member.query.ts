@@ -16,6 +16,7 @@ export class GetMemberResult {
     public readonly frequency: string,
     public readonly point: number,
     public readonly isPro: boolean,
+    public readonly activity: string[]=[],
   ) {}
 }
 
@@ -25,9 +26,10 @@ export class GetMemberQuery implements IQuery {
 
 @Injectable()
 @QueryHandler(GetMemberQuery)
-export class GetMemberHandler
-  implements IQueryHandler<GetMemberQuery, GetMemberResult>
-{
+export class GetMemberHandler implements IQueryHandler<
+  GetMemberQuery,
+  GetMemberResult
+> {
   constructor(
     @Inject(MEMBER_READ_REPOSITORY)
     private readonly memberReadRepository: MemberReadRepository,
@@ -50,6 +52,7 @@ export class GetMemberHandler
       member.frequency,
       member.point,
       member.isPro,
+      member.activity,
     );
   }
 }
