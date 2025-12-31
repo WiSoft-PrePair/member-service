@@ -1,19 +1,29 @@
 import {
   Body,
   Controller,
+  Get,
   Inject,
   NotFoundException,
   Post,
+  UseGuards,
 } from "@nestjs/common";
 import {
   MEMBER_READ_REPOSITORY,
   MemberReadEntity,
   type MemberReadRepository,
 } from "@/adapter/member/persistence/read";
-import { JwtService, TokenResponse } from "@/adapter/auth/security";
+import {
+  JwtAuthGuard,
+  JwtService,
+  TokenResponse,
+} from "@/adapter/auth/security";
 import { AuthService, RefreshTokenService } from "@/application/auth";
-import { LoginRequestDto, RefreshTokenDto } from "@/adapter/auth/api/dto";
-import { MemberEntity } from "@/adapter/member/persistence/mikro-orm/entity";
+import {
+  LoginRequestDto,
+  LogoutRequestDto,
+  RefreshTokenRequestDto,
+} from "@/adapter/auth/api/dto";
+import { CurrentUser } from "@/adapter/auth/api/decorators/current-user.decorator";
 
 @Controller("auth")
 export class AuthController {
@@ -48,7 +58,7 @@ export class AuthController {
   }
 
   @Post("refresh")
-  async refresh(@Body() refreshToken: RefreshTokenDto) {
+  async refresh(@Body() refreshToken: RefreshTokenRequestDto) {
     const memberId: string = await this.refreshTokenService.verify(
       refreshToken.refreshToken,
     );
@@ -74,6 +84,23 @@ export class AuthController {
       accessToken: accessToken.accessToken,
       refreshToken: newRefreshToken,
       accessTokenExpiresIn: accessToken.expiresIn,
+    };
+  }
+
+  @Post("logout")
+  async logout(
+    @Body() logoutRequestDto: LogoutRequestDto,
+  ): Promise<{ success: boolean }> {
+    await this.refreshTokenService.revoke(logoutRequestDto.refreshToken);
+    return { success: true };
+  }
+
+  @Get("me")
+  @UseGuards(JwtAuthGuard)
+  getUser(@CurrentUser() user: { memberId: string; email: string }) {
+    return {
+      memberId: user.memberId,
+      email: user.email,
     };
   }
 }
