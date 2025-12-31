@@ -34,4 +34,7 @@ export class MemberReadEntity {
 
   @Property({ onUpdate: () => new Date() })
   updatedAt!: Date;
+
+  @Property({ type: "json", nullable: true })
+  activity?: string[];
 }
