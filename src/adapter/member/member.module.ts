@@ -11,9 +11,14 @@ import {
 } from "@/adapter/member/persistence/read";
 import { SecurePasswordEncoder } from "@/adapter/member/security";
 import { EventStoreModule } from "@/adapter/shared/event-store/event-store.module";
-import { MEMBER_REPOSITORY, PASSWORD_ENCODER } from "@/domain/member";
+import {
+  MEMBER_REPOSITORY,
+  MemberUpdateEvent,
+  PASSWORD_ENCODER,
+} from "@/domain/member";
 import {
   MemberRegisterCommandHandler,
+  MemberUpdateCommandHandler,
   WithdrawMemberCommandHandler,
 } from "@/application/member/command";
 import { GetMemberHandler } from "@/application/member/query";
@@ -21,13 +26,21 @@ import {
   MemberRegisterEventHandler,
   MemberWithdrawEventHandler,
 } from "@/application/member/event";
+import { MemberUpdateEventHandler } from "@/application/member/event/member-update-event-handler.service";
 
 const CommandHandlers = [
   MemberRegisterCommandHandler,
   WithdrawMemberCommandHandler,
+  MemberUpdateCommandHandler,
 ];
+
 const QueryHandlers = [GetMemberHandler];
-const EventHandlers = [MemberRegisterEventHandler, MemberWithdrawEventHandler];
+
+const EventHandlers = [
+  MemberRegisterEventHandler,
+  MemberWithdrawEventHandler,
+  MemberUpdateEventHandler,
+];
 
 @Module({
   imports: [EventStoreModule, CqrsModule],

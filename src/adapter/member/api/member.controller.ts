@@ -1,11 +1,21 @@
-import { Body, Controller, Delete, Get, Param, Post } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from "@nestjs/common";
 import { RegisterMemberRequestDto } from "@/adapter/member/api/dto";
 import { CommandBus, QueryBus } from "@nestjs/cqrs";
 import {
   MemberRegisterCommand,
+  MemberUpdateCommand,
   MemberWithdrawCommand,
 } from "@/application/member/command";
 import { GetMemberQuery, GetMemberResult } from "@/application/member/query";
+import type { UpdateMemberRequest } from "@/domain/member";
 
 @Controller("members")
 export class MemberController {
@@ -46,6 +56,27 @@ export class MemberController {
       MemberWithdrawCommand,
       string
     >(new MemberWithdrawCommand(id));
+
+    return { id: memberId };
+  }
+
+  @Patch(":id")
+  async update(
+    @Param("id") id: string,
+    @Body() updateMemberRequestDto: UpdateMemberRequest,
+  ) {
+    const memberId: string = await this.commandBus.execute<
+      MemberUpdateCommand,
+      string
+    >(
+      new MemberUpdateCommand(
+        id,
+        updateMemberRequestDto.job,
+        updateMemberRequestDto.nickname,
+        updateMemberRequestDto.notification,
+        updateMemberRequestDto.frequency,
+      ),
+    );
 
     return { id: memberId };
   }
