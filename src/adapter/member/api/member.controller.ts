@@ -11,7 +11,9 @@ import {
 import {
   type ChangePasswordRequestDto,
   type RegisterMemberRequestDto,
+  RequestChangeEmailDto,
   UpdateMemberRequestDto,
+  VerifyChangeEmailDto,
 } from "@/adapter/member/api/dto";
 import { CommandBus, QueryBus } from "@nestjs/cqrs";
 import {
@@ -19,6 +21,8 @@ import {
   MemberRegisterCommand,
   MemberUpdateCommand,
   MemberWithdrawCommand,
+  RequestChangeEmailCommand,
+  VerifyChangeEmailCommand,
 } from "@/application/member/command";
 import { GetMemberQuery, GetMemberResult } from "@/application/member/query";
 import { JwtAuthGuard } from "@/adapter/auth/security";
@@ -106,5 +110,32 @@ export class MemberController {
     );
 
     return { id: memberId };
+  }
+
+  @Post(":id/email/request")
+  @UseGuards(JwtAuthGuard)
+  async requestChangeEmail(
+    @Param("id") id: string,
+    @Body() requestDto: RequestChangeEmailDto,
+  ) {
+    await this.commandBus.execute<RequestChangeEmailCommand, void>(
+      new RequestChangeEmailCommand(id, requestDto.newEmail),
+    );
+
+    return { success: true, message: "인증 코드가 이메일로 발송되었습니다." };
+  }
+
+  @Post(":id/email/verify")
+  @UseGuards(JwtAuthGuard)
+  async verifyChangeEmail(
+    @Param("id") id: string,
+    @Body() verifyDto: VerifyChangeEmailDto,
+  ) {
+    const newEmail: string = await this.commandBus.execute<
+      VerifyChangeEmailCommand,
+      string
+    >(new VerifyChangeEmailCommand(id, verifyDto.code));
+
+    return { success: true, email: newEmail };
   }
 }

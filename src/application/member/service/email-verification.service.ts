@@ -1,5 +1,5 @@
-import { Injectable } from "@nestjs/common";
-import { VerificationCode } from "@/domain/member";
+import { Injectable, Logger } from "@nestjs/common";
+import { VerificationCode } from "@/domain/member/value-objects";
 
 interface VerificationEntry {
   memberId: string;
@@ -9,19 +9,26 @@ interface VerificationEntry {
 
 @Injectable()
 export class EmailVerificationService {
-  private readonly storage: Map<string, VerificationEntry> = new Map<
-    string,
-    VerificationEntry
-  >();
+  private readonly logger = new Logger(EmailVerificationService.name);
+  private readonly storage = new Map<string, VerificationEntry>();
 
+  // 인증 코드 생성 및 저장
   saveVerificationCode(memberId: string, newEmail: string): VerificationCode {
-    const code: VerificationCode = VerificationCode.generate();
+    const code = VerificationCode.generate();
 
-    this.storage.set(memberId, { memberId, newEmail, code });
+    this.storage.set(memberId, {
+      memberId,
+      newEmail,
+      code,
+    });
 
+    this.logger.log(`인증 코드 생성: memberId=${memberId}, email=${newEmail}`);
+
+    // 5분 후 자동 삭제
     setTimeout(
       () => {
         this.storage.delete(memberId);
+        this.logger.log(`인증 코드 만료: memberId=${memberId}`);
       },
       5 * 60 * 1000,
     );
@@ -29,18 +36,24 @@ export class EmailVerificationService {
     return code;
   }
 
-  verifyCode(memberId: string, inputCode: string) {
-    const entry: VerificationEntry | undefined = this.storage.get(memberId);
+  // 인증 코드 검증
+  verifyCode(memberId: string, inputCode: string): string | null {
+    const entry = this.storage.get(memberId);
 
     if (!entry) {
+      this.logger.warn(`인증 코드 없음: memberId=${memberId}`);
       return null;
     }
 
     if (!entry.code.matches(inputCode)) {
+      this.logger.warn(`인증 코드 불일치: memberId=${memberId}`);
       return null;
     }
 
+    // 검증 성공 시 저장소에서 삭제
     this.storage.delete(memberId);
+    this.logger.log(`인증 코드 검증 성공: memberId=${memberId}`);
+
     return entry.newEmail;
   }
 }

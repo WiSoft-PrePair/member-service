@@ -1,18 +1,19 @@
 export class VerificationCode {
-  private readonly value: string;
-  private readonly expiredAt: Date;
+  private readonly _value: string;
+  private readonly _expiresAt: Date;
 
-  private constructor(value: string, expiredAt: Date) {
-    this.value = value;
-    this.expiredAt = expiredAt;
+  private constructor(value: string, expiresAt: Date) {
+    this._value = value;
+    this._expiresAt = expiresAt;
   }
 
+  // 6자리 랜덤 숫자 생성
   public static generate(): VerificationCode {
     const code: string = Math.floor(1000 + Math.random() * 9000).toString();
 
-    const expiredAt: Date = new Date(Date.now() + 5 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    return new VerificationCode(code, expiredAt);
+    return new VerificationCode(code, expiresAt);
   }
 
   public static of(value: string, expiresAt: Date): VerificationCode {
@@ -20,10 +21,18 @@ export class VerificationCode {
   }
 
   public isExpired(): boolean {
-    return new Date() > this.expiredAt;
+    return new Date() > this._expiresAt;
   }
 
   public matches(inputCode: string): boolean {
-    return this.value === inputCode && !this.isExpired();
+    return this._value === inputCode && !this.isExpired();
+  }
+
+  public get value(): string {
+    return this._value;
+  }
+
+  public get expiresAt(): Date {
+    return this._expiresAt;
   }
 }

@@ -16,21 +16,29 @@ import {
   ChangePasswordCommandHandler,
   MemberRegisterCommandHandler,
   MemberUpdateCommandHandler,
+  RequestChangeEmailCommandHandler,
+  VerifyChangeEmailCommandHandler,
   WithdrawMemberCommandHandler,
 } from "@/application/member/command";
 import { GetMemberHandler } from "@/application/member/query";
 import {
+  MemberEmailChangedEventHandler,
   MemberPasswordChangedEventHandler,
   MemberRegisterEventHandler,
   MemberWithdrawEventHandler,
 } from "@/application/member/event";
 import { MemberUpdateEventHandler } from "@/application/member/event/member-update-event-handler.service";
+import { EmailVerificationService } from "@/application/member";
+import { EMAIL_SERVICE } from "@/application/member/service/email.service";
+import { NodemailerService } from "@/adapter/member/email/nodemailer.service";
 
 const CommandHandlers = [
   MemberRegisterCommandHandler,
   WithdrawMemberCommandHandler,
   MemberUpdateCommandHandler,
   ChangePasswordCommandHandler,
+  RequestChangeEmailCommandHandler,
+  VerifyChangeEmailCommandHandler,
 ];
 
 const QueryHandlers = [GetMemberHandler];
@@ -40,6 +48,7 @@ const EventHandlers = [
   MemberWithdrawEventHandler,
   MemberUpdateEventHandler,
   MemberPasswordChangedEventHandler,
+  MemberEmailChangedEventHandler,
 ];
 
 @Module({
@@ -61,6 +70,11 @@ const EventHandlers = [
     {
       provide: PASSWORD_ENCODER,
       useClass: SecurePasswordEncoder,
+    },
+    EmailVerificationService,
+    {
+      provide: EMAIL_SERVICE,
+      useClass: NodemailerService,
     },
   ],
   exports: [MEMBER_REPOSITORY, MEMBER_READ_REPOSITORY, PASSWORD_ENCODER],
