@@ -1,5 +1,5 @@
 import { FrequencyEnum, NotificationEnum } from "../enums";
-import { Email, Password } from "../value-objects";
+import { Email, Password } from "@/domain/member";
 
 export type MemberType = {
   id: string;

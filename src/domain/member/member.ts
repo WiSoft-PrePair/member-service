@@ -78,6 +78,23 @@ export class Member {
     });
   }
 
+  public changeEmail(newEmail: string): Member {
+    const email: Email = new Email(newEmail);
+
+    return new Member({
+      ...this,
+      id: this.id,
+      email,
+      password: this.password,
+      job: this.job,
+      nickname: this.nickname,
+      notification: this.notification,
+      frequency: this.frequency,
+      point: this.point,
+      isPro: this.isPro,
+    });
+  }
+
   // DB에서 기존 엔티티 복원 (이미 검증된 데이터)
   public static of(member: MemberType): Member {
     return new Member(member);
