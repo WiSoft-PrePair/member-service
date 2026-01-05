@@ -13,7 +13,11 @@ import {
   PASSWORD_ENCODER,
   type PasswordEncoder,
 } from "@/domain/member";
-import { createDomainEvent, type EventStore } from "@/domain/shared";
+import {
+  createDomainEvent,
+  EVENT_STORE,
+  type EventStore,
+} from "@/domain/shared";
 import { EntityManager } from "@mikro-orm/postgresql";
 import { Transactional } from "@mikro-orm/core";
 
@@ -27,15 +31,15 @@ export class ChangePasswordCommand implements ICommand {
 
 @Injectable()
 @CommandHandler(ChangePasswordCommand)
-export class ChangePasswordCommandHandler implements ICommandHandler<
-  ChangePasswordCommand,
-  string
-> {
+export class ChangePasswordCommandHandler
+  implements ICommandHandler<ChangePasswordCommand, string>
+{
   constructor(
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepository: MemberRepository,
     @Inject(PASSWORD_ENCODER)
     private readonly passwordEncoder: PasswordEncoder,
+    @Inject(EVENT_STORE)
     private readonly eventStore: EventStore,
     private readonly eventBus: EventBus,
     private readonly em: EntityManager,

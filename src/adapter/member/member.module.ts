@@ -13,12 +13,14 @@ import { SecurePasswordEncoder } from "@/adapter/member/security";
 import { EventStoreModule } from "@/adapter/shared/event-store/event-store.module";
 import { MEMBER_REPOSITORY, PASSWORD_ENCODER } from "@/domain/member";
 import {
+  ChangePasswordCommandHandler,
   MemberRegisterCommandHandler,
   MemberUpdateCommandHandler,
   WithdrawMemberCommandHandler,
 } from "@/application/member/command";
 import { GetMemberHandler } from "@/application/member/query";
 import {
+  MemberPasswordChangedEventHandler,
   MemberRegisterEventHandler,
   MemberWithdrawEventHandler,
 } from "@/application/member/event";
@@ -28,6 +30,7 @@ const CommandHandlers = [
   MemberRegisterCommandHandler,
   WithdrawMemberCommandHandler,
   MemberUpdateCommandHandler,
+  ChangePasswordCommandHandler,
 ];
 
 const QueryHandlers = [GetMemberHandler];
@@ -36,6 +39,7 @@ const EventHandlers = [
   MemberRegisterEventHandler,
   MemberWithdrawEventHandler,
   MemberUpdateEventHandler,
+  MemberPasswordChangedEventHandler,
 ];
 
 @Module({

@@ -6,7 +6,9 @@ import { EntityManager } from "@mikro-orm/postgresql";
 
 @Injectable()
 @EventsHandler(MemberUpdateEvent)
-export class MemberUpdateEventHandler implements IEventHandler<MemberUpdateEvent> {
+export class MemberUpdateEventHandler
+  implements IEventHandler<MemberUpdateEvent>
+{
   private readonly logger: Logger = new Logger(MemberUpdateEventHandler.name);
 
   constructor(private readonly em: EntityManager) {}
@@ -14,10 +16,16 @@ export class MemberUpdateEventHandler implements IEventHandler<MemberUpdateEvent
   async handle(event: MemberUpdateEvent) {
     this.logger.log(`회원정보 수정 이벤트 시작: ${event.memberId}`);
 
-    const entity: MemberReadEntity = this.em.getReference(
-      MemberReadEntity,
-      event.memberId,
-    );
+    const em = this.em.fork();
+
+    const entity: MemberReadEntity | null = await em.findOne(MemberReadEntity, {
+      id: event.memberId,
+    });
+
+    if (!entity) {
+      this.logger.warn(`회원 Read Entity를 찾을 수 없음: ${event.memberId}`);
+      return;
+    }
 
     entity.email = event.email;
     entity.password = event.password;
@@ -29,7 +37,7 @@ export class MemberUpdateEventHandler implements IEventHandler<MemberUpdateEvent
     entity.isPro = event.isPro;
     entity.updatedAt = event.occurredAt;
 
-    await this.em.flush();
+    await em.flush();
 
     this.logger.log(`회원정보 수정 이벤트 종료: ${event.memberId}`);
   }

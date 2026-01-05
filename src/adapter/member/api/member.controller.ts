@@ -8,15 +8,19 @@ import {
   Post,
   UseGuards,
 } from "@nestjs/common";
-import { RegisterMemberRequestDto } from "@/adapter/member/api/dto";
+import {
+  type ChangePasswordRequestDto,
+  type RegisterMemberRequestDto,
+  UpdateMemberRequestDto,
+} from "@/adapter/member/api/dto";
 import { CommandBus, QueryBus } from "@nestjs/cqrs";
 import {
+  ChangePasswordCommand,
   MemberRegisterCommand,
   MemberUpdateCommand,
   MemberWithdrawCommand,
 } from "@/application/member/command";
 import { GetMemberQuery, GetMemberResult } from "@/application/member/query";
-import type { UpdateMemberRequest } from "@/domain/member";
 import { JwtAuthGuard } from "@/adapter/auth/security";
 
 @Controller("members")
@@ -66,7 +70,7 @@ export class MemberController {
   @UseGuards(JwtAuthGuard)
   async update(
     @Param("id") id: string,
-    @Body() updateMemberRequestDto: UpdateMemberRequest,
+    @Body() updateMemberRequestDto: UpdateMemberRequestDto,
   ) {
     const memberId: string = await this.commandBus.execute<
       MemberUpdateCommand,
@@ -78,6 +82,26 @@ export class MemberController {
         updateMemberRequestDto.nickname,
         updateMemberRequestDto.notification,
         updateMemberRequestDto.frequency,
+      ),
+    );
+
+    return { id: memberId };
+  }
+
+  @Patch(":id/password")
+  @UseGuards(JwtAuthGuard)
+  async changePassword(
+    @Param("id") id: string,
+    @Body() changePasswordRequestDto: ChangePasswordRequestDto,
+  ) {
+    const memberId: string = await this.commandBus.execute<
+      ChangePasswordCommand,
+      string
+    >(
+      new ChangePasswordCommand(
+        id,
+        changePasswordRequestDto.currentPassword,
+        changePasswordRequestDto.newPassword,
       ),
     );
 

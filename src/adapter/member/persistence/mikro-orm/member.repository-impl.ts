@@ -23,9 +23,12 @@ export class MemberRepositoryImpl implements MemberRepository {
   }
 
   update(member: Member): Member {
-    const entity: MemberEntity = this.mapper.toEntity(member);
+    const reference: MemberEntity = this.em.getReference(
+      MemberEntity,
+      member.id,
+    );
 
-    this.em.merge(entity);
+    this.em.assign(reference, this.mapper.toEntity(member));
 
     return member;
   }
