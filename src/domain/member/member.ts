@@ -7,6 +7,7 @@ import {
 import { randomUUID } from "crypto";
 import { Email, Password } from "./value-objects";
 import type { PasswordEncoder } from "./password-encoder";
+import { InvalidPasswordException } from "@/domain/member/exceptions";
 
 export class Member {
   readonly id: string;
@@ -47,6 +48,31 @@ export class Member {
       nickname: request.nickname ?? this.nickname,
       notification: request.notification ?? this.notification,
       frequency: request.frequency ?? this.frequency,
+      point: this.point,
+      isPro: this.isPro,
+    });
+  }
+
+  public changePassword(
+    currentPassword: string,
+    newPassword: string,
+    encoder: PasswordEncoder,
+  ): Member {
+    if (!this.password.matches(currentPassword, encoder)) {
+      throw new InvalidPasswordException();
+    }
+
+    const password: Password = Password.create(newPassword, encoder);
+
+    return new Member({
+      ...this,
+      id: this.id,
+      email: this.email,
+      password,
+      job: this.job,
+      nickname: this.nickname,
+      notification: this.notification,
+      frequency: this.frequency,
       point: this.point,
       isPro: this.isPro,
     });
