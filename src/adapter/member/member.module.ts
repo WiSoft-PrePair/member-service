@@ -11,11 +11,7 @@ import {
 } from "@/adapter/member/persistence/read";
 import { SecurePasswordEncoder } from "@/adapter/member/security";
 import { EventStoreModule } from "@/adapter/shared/event-store/event-store.module";
-import {
-  MEMBER_REPOSITORY,
-  MemberUpdateEvent,
-  PASSWORD_ENCODER,
-} from "@/domain/member";
+import { MEMBER_REPOSITORY, PASSWORD_ENCODER } from "@/domain/member";
 import {
   MemberRegisterCommandHandler,
   MemberUpdateCommandHandler,

@@ -9,9 +9,7 @@ import { EntityManager } from "@mikro-orm/core";
 
 @Injectable()
 @EventsHandler(MemberWithdrawEvent)
-export class MemberWithdrawEventHandler
-  implements IEventHandler<MemberWithdrawEvent>
-{
+export class MemberWithdrawEventHandler implements IEventHandler<MemberWithdrawEvent> {
   private readonly logger: Logger = new Logger(MemberWithdrawEventHandler.name);
 
   constructor(

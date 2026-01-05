@@ -16,7 +16,7 @@ export class GetMemberResult {
     public readonly frequency: string,
     public readonly point: number,
     public readonly isPro: boolean,
-    public readonly activity: string[]=[],
+    public readonly activity: string[] = [],
   ) {}
 }
 

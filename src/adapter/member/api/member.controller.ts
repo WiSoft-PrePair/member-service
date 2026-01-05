@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  UseGuards,
 } from "@nestjs/common";
 import { RegisterMemberRequestDto } from "@/adapter/member/api/dto";
 import { CommandBus, QueryBus } from "@nestjs/cqrs";
@@ -16,6 +17,7 @@ import {
 } from "@/application/member/command";
 import { GetMemberQuery, GetMemberResult } from "@/application/member/query";
 import type { UpdateMemberRequest } from "@/domain/member";
+import { JwtAuthGuard } from "@/adapter/auth/security";
 
 @Controller("members")
 export class MemberController {
@@ -61,6 +63,7 @@ export class MemberController {
   }
 
   @Patch(":id")
+  @UseGuards(JwtAuthGuard)
   async update(
     @Param("id") id: string,
     @Body() updateMemberRequestDto: UpdateMemberRequest,
