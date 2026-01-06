@@ -24,6 +24,7 @@ import {
   RefreshTokenRequestDto,
 } from "@/adapter/auth/api/dto";
 import { CurrentUser } from "@/adapter/auth/api/decorators/current-user.decorator";
+import { type User } from "@/adapter/shared/api/types/user";
 
 @Controller("api/auth")
 export class AuthController {
@@ -97,7 +98,7 @@ export class AuthController {
 
   @Get("me")
   @UseGuards(JwtAuthGuard)
-  getUser(@CurrentUser() user: { memberId: string; email: string }) {
+  getUser(@CurrentUser() user: User) {
     return {
       memberId: user.memberId,
       email: user.email,
