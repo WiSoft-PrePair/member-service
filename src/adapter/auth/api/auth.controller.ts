@@ -25,7 +25,7 @@ import {
 } from "@/adapter/auth/api/dto";
 import { CurrentUser } from "@/adapter/auth/api/decorators/current-user.decorator";
 
-@Controller("auth")
+@Controller("api/auth")
 export class AuthController {
   constructor(
     private readonly authService: AuthService,

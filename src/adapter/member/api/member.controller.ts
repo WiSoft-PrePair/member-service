@@ -29,7 +29,7 @@ import {
 import { GetMemberQuery, GetMemberResult } from "@/application/member/query";
 import { JwtAuthGuard } from "@/adapter/auth/security";
 
-@Controller("members")
+@Controller("api/members")
 export class MemberController {
   constructor(
     private readonly commandBus: CommandBus,
@@ -82,7 +82,7 @@ export class MemberController {
    * 이메일 검증 코드 확인
    * POST /members/email/verify
    */
-  @Post("email/verify")
+  @Post("email-verify")
   async verifyEmail(@Body() dto: VerifyEmailDto) {
     const result = await this.commandBus.execute<VerifyEmailCommand, string>(
       new VerifyEmailCommand(dto.email, dto.code),
