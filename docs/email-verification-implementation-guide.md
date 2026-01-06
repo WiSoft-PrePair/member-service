@@ -29,7 +29,7 @@
 
 **관련 파일:**
 - `src/application/member/command/member-register.command.ts`
-- `src/adapter/member/api/dto/register-member-request.dto.ts`
+- `src/adapter/member/api/dto/register-member.dto.ts`
 - `src/adapter/member/api/member.controller.ts`
 
 ### 이메일 변경 플로우 (현재)
@@ -624,13 +624,13 @@ export class ChangeEmailDto {
 
 #### 3.3 회원가입 DTO 수정
 
-**기존 파일:** `src/adapter/member/api/dto/register-member-request.dto.ts`
+**기존 파일:** `src/adapter/member/api/dto/register-member.dto.ts`
 
 ```typescript
 import { IsEmail, IsEnum, IsNotEmpty, IsString, MinLength } from 'class-validator';
 import { NotificationEnum, FrequencyEnum } from '@/domain/member/enums';
 
-export class RegisterMemberRequestDto {
+export class RegisterMemberDto {
   @IsEmail()
   email: string;
 
@@ -685,7 +685,7 @@ import {
   ChangeEmailCommand,
 } from '@/application/member/command';
 import {
-  RegisterMemberRequestDto,
+  RegisterMemberDto,
   SendEmailVerificationDto,
   VerifyEmailDto,
   ChangeEmailDto,
@@ -733,7 +733,7 @@ export class MemberController {
    * POST /members
    */
   @Post()
-  async register(@Body() dto: RegisterMemberRequestDto) {
+  async register(@Body() dto: RegisterMemberDto) {
     const memberId = await this.commandBus.execute<MemberRegisterCommand, string>(
       new MemberRegisterCommand(
         dto.email,
@@ -1082,7 +1082,7 @@ src/
 │   │   ├── member.controller.ts               # 수정
 │   │   └── dto/
 │   │       ├── index.ts                       # 수정
-│   │       ├── register-member-request.dto.ts # 수정
+│   │       ├── register-member.dto.ts # 수정
 │   │       ├── send-email-verification.dto.ts # 신규
 │   │       ├── verify-email.dto.ts            # 신규
 │   │       └── change-email.dto.ts            # 신규

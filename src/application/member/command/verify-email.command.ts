@@ -23,7 +23,7 @@ export class VerifyEmailCommandHandler implements ICommandHandler<
     private readonly emailVerificationService: EmailVerificationService,
   ) {}
 
-  // eslint-disable-next-line
+  // eslint-disable-next-line @typescript-eslint/require-await
   async execute(command: VerifyEmailCommand): Promise<string> {
     const { email, code } = command;
 

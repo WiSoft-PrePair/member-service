@@ -9,11 +9,11 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import {
-  type ChangePasswordRequestDto,
-  type RegisterMemberRequestDto,
-  RequestChangeEmailDto,
-  UpdateMemberRequestDto,
-  VerifyChangeEmailDto,
+  type ChangePasswordDto,
+  type RegisterMemberDto,
+  SendEmailVerificationDto,
+  UpdateMemberDto,
+  VerifyEmailDto,
 } from "@/adapter/member/api/dto";
 import { CommandBus, QueryBus } from "@nestjs/cqrs";
 import {
@@ -21,8 +21,8 @@ import {
   MemberRegisterCommand,
   MemberUpdateCommand,
   MemberWithdrawCommand,
-  RequestChangeEmailCommand,
-  ChangeEmailCommand,
+  SendEmailVerificationCommand,
+  VerifyEmailCommand,
 } from "@/application/member/command";
 import { GetMemberQuery, GetMemberResult } from "@/application/member/query";
 import { JwtAuthGuard } from "@/adapter/auth/security";
@@ -34,8 +34,41 @@ export class MemberController {
     private readonly queryBus: QueryBus,
   ) {}
 
+  /**
+   * 이메일 검증 코드 발송 (회원가입/이메일변경 공용)
+   * POST /members/email/send-verification
+   */
+  @Post("email/")
+  async sendEmailVerification(@Body() dto: SendEmailVerificationDto) {
+    await this.commandBus.execute(
+      new SendEmailVerificationCommand(dto.email, dto.purpose),
+    );
+
+    return {
+      success: true,
+      message: "인증 코드가 이메일로 발송되었습니다.",
+    };
+  }
+
+  /**
+   * 이메일 검증 코드 확인
+   * POST /members/email/verify
+   */
+  @Post("email/verify")
+  async verifyEmail(@Body() dto: VerifyEmailDto) {
+    const token = await this.commandBus.execute<VerifyEmailCommand, string>(
+      new VerifyEmailCommand(dto.email, dto.code),
+    );
+
+    return {
+      success: true,
+      verificationToken: token,
+      message: "이메일 검증이 완료되었습니다.",
+    };
+  }
+
   @Post("register")
-  async register(@Body() registerDto: RegisterMemberRequestDto) {
+  async register(@Body() registerDto: RegisterMemberDto) {
     const memberId: string = await this.commandBus.execute<
       MemberRegisterCommand,
       string
@@ -47,6 +80,7 @@ export class MemberController {
         registerDto.nickname,
         registerDto.notification,
         registerDto.frequency,
+        registerDto.verificationToken,
       ),
     );
 
@@ -74,7 +108,7 @@ export class MemberController {
   @UseGuards(JwtAuthGuard)
   async update(
     @Param("id") id: string,
-    @Body() updateMemberRequestDto: UpdateMemberRequestDto,
+    @Body() updateMemberRequestDto: UpdateMemberDto,
   ) {
     const memberId: string = await this.commandBus.execute<
       MemberUpdateCommand,
@@ -96,7 +130,7 @@ export class MemberController {
   @UseGuards(JwtAuthGuard)
   async changePassword(
     @Param("id") id: string,
-    @Body() changePasswordRequestDto: ChangePasswordRequestDto,
+    @Body() changePasswordRequestDto: ChangePasswordDto,
   ) {
     const memberId: string = await this.commandBus.execute<
       ChangePasswordCommand,
@@ -110,32 +144,5 @@ export class MemberController {
     );
 
     return { id: memberId };
-  }
-
-  @Post(":id/email/request")
-  @UseGuards(JwtAuthGuard)
-  async requestChangeEmail(
-    @Param("id") id: string,
-    @Body() requestDto: RequestChangeEmailDto,
-  ) {
-    await this.commandBus.execute<RequestChangeEmailCommand, void>(
-      new RequestChangeEmailCommand(id, requestDto.newEmail),
-    );
-
-    return { success: true, message: "인증 코드가 이메일로 발송되었습니다." };
-  }
-
-  @Post(":id/email/verify")
-  @UseGuards(JwtAuthGuard)
-  async verifyChangeEmail(
-    @Param("id") id: string,
-    @Body() verifyDto: VerifyChangeEmailDto,
-  ) {
-    const newEmail: string = await this.commandBus.execute<
-      ChangeEmailCommand,
-      string
-    >(new ChangeEmailCommand(id, verifyDto.code));
-
-    return { success: true, email: newEmail };
   }
 }

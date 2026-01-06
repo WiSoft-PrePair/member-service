@@ -16,8 +16,9 @@ import {
   ChangePasswordCommandHandler,
   MemberRegisterCommandHandler,
   MemberUpdateCommandHandler,
-  RequestChangeEmailCommandHandler,
+  SendEmailVerificationCommandHandler,
   VerifyChangeEmailCommandHandler,
+  VerifyEmailCommandHandler,
   WithdrawMemberCommandHandler,
 } from "@/application/member/command";
 import { GetMemberHandler } from "@/application/member/query";
@@ -37,7 +38,8 @@ const CommandHandlers = [
   WithdrawMemberCommandHandler,
   MemberUpdateCommandHandler,
   ChangePasswordCommandHandler,
-  RequestChangeEmailCommandHandler,
+  SendEmailVerificationCommandHandler,
+  VerifyEmailCommandHandler,
   VerifyChangeEmailCommandHandler,
 ];
 

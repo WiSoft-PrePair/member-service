@@ -1,7 +1,7 @@
 import { FrequencyEnum, NotificationEnum } from "@/domain/member";
 import { IsEnum, IsOptional, IsString } from "class-validator";
 
-export class UpdateMemberRequestDto {
+export class UpdateMemberDto {
   @IsOptional()
   @IsString()
   job?: string;
