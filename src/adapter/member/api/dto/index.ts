@@ -1,1 +1,6 @@
-export * from "./register-member-request.dto";
+export * from "./register-member.dto";
+export * from "./update-member.dto";
+export * from "./change-password.dto";
+export * from "./send-email-verification.dto";
+export * from "./verify-email.dto";
+export * from "./change-email.dto";

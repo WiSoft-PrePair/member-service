@@ -10,7 +10,6 @@ export class MemberRepositoryImpl implements MemberRepository {
     private readonly em: EntityManager,
     private readonly mapper: MemberMapper,
   ) {}
-
   register(member: Member): Member {
     const entity: MemberEntity = this.mapper.toEntity(member);
 
@@ -21,5 +20,28 @@ export class MemberRepositoryImpl implements MemberRepository {
 
   withdraw(memberId: string): void {
     this.em.nativeDelete(MemberEntity, { id: memberId });
+  }
+
+  update(member: Member): Member {
+    const reference: MemberEntity = this.em.getReference(
+      MemberEntity,
+      member.id,
+    );
+
+    this.em.assign(reference, this.mapper.toEntity(member));
+
+    return member;
+  }
+
+  async findById(id: string): Promise<Member | null> {
+    const entity: MemberEntity | null = await this.em.findOne(MemberEntity, {
+      id,
+    });
+
+    if (!entity) {
+      return null;
+    }
+
+    return this.mapper.toDomain(entity);
   }
 }

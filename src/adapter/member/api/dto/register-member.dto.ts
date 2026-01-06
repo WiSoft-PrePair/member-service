@@ -1,7 +1,7 @@
 import { FrequencyEnum, NotificationEnum } from "@/domain/member";
 import { IsEmail, IsEnum, IsString, MinLength } from "class-validator";
 
-export class RegisterMemberRequestDto {
+export class RegisterMemberDto {
   @IsEmail()
   email!: string;
 

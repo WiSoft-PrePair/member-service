@@ -1,8 +1,13 @@
 import { FrequencyEnum, NotificationEnum } from "./enums";
-import { MemberType, RegisterMemberRequest } from "./types";
+import {
+  MemberType,
+  RegisterMemberRequest,
+  UpdateMemberRequest,
+} from "./types";
 import { randomUUID } from "crypto";
 import { Email, Password } from "./value-objects";
 import type { PasswordEncoder } from "./password-encoder";
+import { InvalidPasswordException } from "@/domain/member/exceptions";
 
 export class Member {
   readonly id: string;
@@ -30,6 +35,63 @@ export class Member {
       password: Password.create(registerRequest.password, encoder),
       point: 0,
       isPro: false,
+    });
+  }
+
+  public update(request: UpdateMemberRequest): Member {
+    return new Member({
+      ...this,
+      id: this.id,
+      email: this.email,
+      password: this.password,
+      job: request.job ?? this.job,
+      nickname: request.nickname ?? this.nickname,
+      notification: request.notification ?? this.notification,
+      frequency: request.frequency ?? this.frequency,
+      point: this.point,
+      isPro: this.isPro,
+    });
+  }
+
+  public changePassword(
+    currentPassword: string,
+    newPassword: string,
+    encoder: PasswordEncoder,
+  ): Member {
+    if (!this.password.matches(currentPassword, encoder)) {
+      throw new InvalidPasswordException();
+    }
+
+    const password: Password = Password.create(newPassword, encoder);
+
+    return new Member({
+      ...this,
+      id: this.id,
+      email: this.email,
+      password,
+      job: this.job,
+      nickname: this.nickname,
+      notification: this.notification,
+      frequency: this.frequency,
+      point: this.point,
+      isPro: this.isPro,
+    });
+  }
+
+  public changeEmail(newEmail: string): Member {
+    const email: Email = new Email(newEmail);
+
+    return new Member({
+      ...this,
+      id: this.id,
+      email,
+      password: this.password,
+      job: this.job,
+      nickname: this.nickname,
+      notification: this.notification,
+      frequency: this.frequency,
+      point: this.point,
+      isPro: this.isPro,
     });
   }
 

@@ -6,6 +6,7 @@ import {
 } from "@nestjs/cqrs";
 import {
   FrequencyEnum,
+  InvalidVerificationTokenException,
   Member,
   MEMBER_REPOSITORY,
   type MemberRepository,
@@ -21,6 +22,7 @@ import {
 } from "@/domain/shared";
 import { EntityManager, Transactional } from "@mikro-orm/core";
 import { MemberRegisterEvent } from "@/domain/member/events";
+import { EmailVerificationService } from "@/application/member";
 
 export class MemberRegisterCommand implements ICommand {
   constructor(
@@ -47,10 +49,17 @@ export class MemberRegisterCommandHandler
     private readonly eventStore: EventStore,
     private readonly eventBus: EventBus,
     private readonly em: EntityManager,
+    private readonly emailVerificationService: EmailVerificationService,
   ) {}
 
   @Transactional()
   async execute(command: MemberRegisterCommand): Promise<string> {
+    if (!this.emailVerificationService.isEmailVerified(command.email)) {
+      throw new InvalidVerificationTokenException();
+    }
+
+    this.emailVerificationService.consumeVerifiedEmail(command.email);
+
     const member: Member = Member.register(
       {
         email: command.email,
