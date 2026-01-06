@@ -28,7 +28,6 @@ export class MemberUpdateEventHandler
     }
 
     entity.email = event.email;
-    entity.password = event.password;
     entity.job = event.job;
     entity.nickname = event.nickname;
     entity.notification = event.notification;

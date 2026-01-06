@@ -1,10 +1,10 @@
 import { Module } from "@nestjs/common";
-import { REFRESH_TOKEN_REPOSITORY } from "@/adapter/auth/presistence/refresh-token.repository";
-import { RefreshTokenRepositoryImpl } from "@/adapter/auth/presistence/refresh-token.repository-impl";
+import { REFRESH_TOKEN_REPOSITORY } from "@/adapter/auth/persistence/refresh-token.repository";
+import { RefreshTokenRepositoryImpl } from "@/adapter/auth/persistence/refresh-token.repository-impl";
 import { PassportModule } from "@nestjs/passport";
 import { JwtModule, type JwtModuleOptions } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import { RefreshTokenEntity } from "@/adapter/auth/presistence/entity/refresh-token.entity";
+import { RefreshTokenEntity } from "@/adapter/auth/persistence/entity/refresh-token.entity";
 import { MemberModule } from "@/adapter/member/member.module";
 import { MikroOrmModule } from "@mikro-orm/nestjs";
 import { AuthController } from "@/adapter/auth/api/auth.controller";

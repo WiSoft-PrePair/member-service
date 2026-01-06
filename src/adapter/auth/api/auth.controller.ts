@@ -5,26 +5,21 @@ import {
   Inject,
   NotFoundException,
   Post,
-  UseGuards,
 } from "@nestjs/common";
 import {
   MEMBER_READ_REPOSITORY,
   MemberReadEntity,
   type MemberReadRepository,
 } from "@/adapter/member/persistence/read";
-import {
-  JwtAuthGuard,
-  JwtService,
-  TokenResponse,
-} from "@/adapter/auth/security";
+import { JwtService, TokenResponse } from "@/adapter/auth/security";
 import { AuthService, RefreshTokenService } from "@/application/auth";
 import {
   LoginRequestDto,
   LogoutRequestDto,
   RefreshTokenRequestDto,
-}                      from "@/adapter/auth/api/dto";
+} from "@/adapter/auth/api/dto";
 import { CurrentUser } from "@/adapter/shared/api/decorators/current-user.decorator";
-import { type User }   from "@/adapter/shared/api/types/user";
+import { type User } from "@/adapter/shared/api/types/user";
 import { Public } from "@/adapter/shared/api/decorators/public.decorator";
 
 @Controller("api/auth")

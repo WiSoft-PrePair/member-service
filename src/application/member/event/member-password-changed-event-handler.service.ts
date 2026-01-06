@@ -28,7 +28,6 @@ export class MemberPasswordChangedEventHandler
       return;
     }
 
-    entity.password = event.newPasswordHash;
     entity.updatedAt = event.occurredAt;
 
     await em.flush();

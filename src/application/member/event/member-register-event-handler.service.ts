@@ -29,7 +29,6 @@ export class MemberRegisterEventHandler
     readEntity.isPro = false;
     readEntity.createdAt = event.occurredAt;
     readEntity.updatedAt = event.occurredAt;
-    readEntity.password = event.password;
 
     em.persist(readEntity);
     await em.flush();

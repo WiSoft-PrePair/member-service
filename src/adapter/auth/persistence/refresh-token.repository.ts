@@ -1,4 +1,4 @@
-import { RefreshTokenEntity } from "@/adapter/auth/presistence/entity/refresh-token.entity";
+import { RefreshTokenEntity } from "@/adapter/auth/persistence/entity/refresh-token.entity";
 
 export interface RefreshTokenRepository {
   save(entity: RefreshTokenEntity): Promise<void>;

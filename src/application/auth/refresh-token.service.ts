@@ -4,8 +4,8 @@ import { randomUUID } from "crypto";
 import {
   REFRESH_TOKEN_REPOSITORY,
   type RefreshTokenRepository,
-} from "@/adapter/auth/presistence/refresh-token.repository";
-import { RefreshTokenEntity } from "@/adapter/auth/presistence/entity/refresh-token.entity";
+} from "@/adapter/auth/persistence/refresh-token.repository";
+import { RefreshTokenEntity } from "@/adapter/auth/persistence/entity/refresh-token.entity";
 
 @Injectable()
 export class RefreshTokenService {

@@ -6,7 +6,6 @@ import {
   Param,
   Patch,
   Post,
-  UseGuards,
 } from "@nestjs/common";
 import {
   ChangeEmailDto,
@@ -27,9 +26,8 @@ import {
   VerifyEmailCommand,
 } from "@/application/member/command";
 import { GetMemberQuery, GetMemberResult } from "@/application/member/query";
-import { JwtAuthGuard } from "@/adapter/auth/security";
-import { CurrentUser }  from "@/adapter/shared/api/decorators/current-user.decorator";
-import { type User }    from "@/adapter/shared/api/types/user";
+import { CurrentUser } from "@/adapter/shared/api/decorators/current-user.decorator";
+import { type User } from "@/adapter/shared/api/types/user";
 import { Public } from "@/adapter/shared/api/decorators/public.decorator";
 
 @Controller("api/members")
