@@ -44,7 +44,7 @@
 
 **관련 파일:**
 - `src/application/member/command/request-change-email.command.ts`
-- `src/application/member/command/verify-change-email.command.ts`
+- `src/application/member/command/change-email.command.ts`
 - `src/application/member/service/email-verification.service.ts`
 - `src/adapter/member/email/nodemailer.service.ts`
 
@@ -480,7 +480,7 @@ export class MemberRegisterCommandHandler
 
 **기존 파일들 정리:**
 - `src/application/member/command/request-change-email.command.ts` → **삭제**
-- `src/application/member/command/verify-change-email.command.ts` → **수정 (파일명 변경)**
+- `src/application/member/command/change-email.command.ts` → **수정 (파일명 변경)**
 
 **수정 파일:** `src/application/member/command/change-email.command.ts`
 
@@ -930,7 +930,7 @@ export class MemberModule {}
 | 파일 경로 | 사유 |
 |---------|-----|
 | `src/application/member/command/request-change-email.command.ts` | 공용 API로 대체 |
-| `src/application/member/command/verify-change-email.command.ts` | `change-email.command.ts`로 대체 |
+| `src/application/member/command/change-email.command.ts` | `change-email.command.ts`로 대체 |
 | `src/adapter/member/api/dto/request-change-email.dto.ts` | 공용 DTO로 대체 |
 | `src/adapter/member/api/dto/verify-change-email.dto.ts` | 공용 DTO로 대체 |
 

@@ -22,7 +22,7 @@ import {
   MemberUpdateCommand,
   MemberWithdrawCommand,
   RequestChangeEmailCommand,
-  VerifyChangeEmailCommand,
+  ChangeEmailCommand,
 } from "@/application/member/command";
 import { GetMemberQuery, GetMemberResult } from "@/application/member/query";
 import { JwtAuthGuard } from "@/adapter/auth/security";
@@ -132,9 +132,9 @@ export class MemberController {
     @Body() verifyDto: VerifyChangeEmailDto,
   ) {
     const newEmail: string = await this.commandBus.execute<
-      VerifyChangeEmailCommand,
+      ChangeEmailCommand,
       string
-    >(new VerifyChangeEmailCommand(id, verifyDto.code));
+    >(new ChangeEmailCommand(id, verifyDto.code));
 
     return { success: true, email: newEmail };
   }

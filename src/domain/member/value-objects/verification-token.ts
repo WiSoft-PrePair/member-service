@@ -1,8 +1,9 @@
 import { randomUUID } from "crypto";
+import { email } from "zod";
 
 export class VerificationToken {
   private constructor(
-    private readonly value: string,
+    private readonly _value: string,
     private readonly email: string,
     private readonly expiredAt: Date,
   ) {}
@@ -25,5 +26,9 @@ export class VerificationToken {
 
   public isExpired(): boolean {
     return this.expiredAt < new Date();
+  }
+
+  public getValue(): string {
+    return this._value;
   }
 }
