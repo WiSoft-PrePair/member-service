@@ -23,7 +23,6 @@ import {
 import { EntityManager, Transactional } from "@mikro-orm/core";
 import { MemberRegisterEvent } from "@/domain/member/events";
 import { EmailVerificationService } from "@/application/member";
-import { email } from "zod";
 
 export class MemberRegisterCommand implements ICommand {
   constructor(
@@ -33,16 +32,14 @@ export class MemberRegisterCommand implements ICommand {
     public readonly nickname: string,
     public readonly notification: NotificationEnum,
     public readonly frequency: FrequencyEnum,
-    public readonly verificationCode: string,
   ) {}
 }
 
 @Injectable()
 @CommandHandler(MemberRegisterCommand)
-export class MemberRegisterCommandHandler implements ICommandHandler<
-  MemberRegisterCommand,
-  string
-> {
+export class MemberRegisterCommandHandler
+  implements ICommandHandler<MemberRegisterCommand, string>
+{
   constructor(
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepository: MemberRepository,
@@ -57,12 +54,11 @@ export class MemberRegisterCommandHandler implements ICommandHandler<
 
   @Transactional()
   async execute(command: MemberRegisterCommand): Promise<string> {
-    const verifiedEmail: string | null =
-      this.emailVerificationService.consumeToken(command.verificationCode);
-
-    if (!verifiedEmail || verifiedEmail !== command.email) {
+    if (!this.emailVerificationService.isEmailVerified(command.email)) {
       throw new InvalidVerificationTokenException();
     }
+
+    this.emailVerificationService.consumeVerifiedEmail(command.email);
 
     const member: Member = Member.register(
       {

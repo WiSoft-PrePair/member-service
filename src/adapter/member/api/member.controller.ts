@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import {
+  ChangeEmailDto,
   type ChangePasswordDto,
   type RegisterMemberDto,
   SendEmailVerificationDto,
@@ -17,6 +18,7 @@ import {
 } from "@/adapter/member/api/dto";
 import { CommandBus, QueryBus } from "@nestjs/cqrs";
 import {
+  ChangeEmailCommand,
   ChangePasswordCommand,
   MemberRegisterCommand,
   MemberUpdateCommand,
@@ -33,6 +35,32 @@ export class MemberController {
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
   ) {}
+
+  @Post("register")
+  async register(@Body() registerDto: RegisterMemberDto) {
+    const memberId: string = await this.commandBus.execute<
+      MemberRegisterCommand,
+      string
+    >(
+      new MemberRegisterCommand(
+        registerDto.email,
+        registerDto.password,
+        registerDto.job,
+        registerDto.nickname,
+        registerDto.notification,
+        registerDto.frequency,
+      ),
+    );
+
+    return { id: memberId };
+  }
+
+  @Get(":id")
+  async getMember(@Param("id") id: string): Promise<GetMemberResult> {
+    return this.queryBus.execute<GetMemberQuery, GetMemberResult>(
+      new GetMemberQuery(id),
+    );
+  }
 
   /**
    * 이메일 검증 코드 발송 (회원가입/이메일변경 공용)
@@ -56,52 +84,11 @@ export class MemberController {
    */
   @Post("email/verify")
   async verifyEmail(@Body() dto: VerifyEmailDto) {
-    const token = await this.commandBus.execute<VerifyEmailCommand, string>(
+    const result = await this.commandBus.execute<VerifyEmailCommand, string>(
       new VerifyEmailCommand(dto.email, dto.code),
     );
 
-    return {
-      success: true,
-      verificationToken: token,
-      message: "이메일 검증이 완료되었습니다.",
-    };
-  }
-
-  @Post("register")
-  async register(@Body() registerDto: RegisterMemberDto) {
-    const memberId: string = await this.commandBus.execute<
-      MemberRegisterCommand,
-      string
-    >(
-      new MemberRegisterCommand(
-        registerDto.email,
-        registerDto.password,
-        registerDto.job,
-        registerDto.nickname,
-        registerDto.notification,
-        registerDto.frequency,
-        registerDto.verificationToken,
-      ),
-    );
-
-    return { id: memberId };
-  }
-
-  @Get(":id")
-  async getMember(@Param("id") id: string): Promise<GetMemberResult> {
-    return this.queryBus.execute<GetMemberQuery, GetMemberResult>(
-      new GetMemberQuery(id),
-    );
-  }
-
-  @Delete(":id")
-  async withdraw(@Param("id") id: string) {
-    const memberId: string = await this.commandBus.execute<
-      MemberWithdrawCommand,
-      string
-    >(new MemberWithdrawCommand(id));
-
-    return { id: memberId };
+    return result;
   }
 
   @Patch(":id")
@@ -142,6 +129,29 @@ export class MemberController {
         changePasswordRequestDto.newPassword,
       ),
     );
+
+    return { id: memberId };
+  }
+
+  @Patch(":id/email")
+  @UseGuards(JwtAuthGuard)
+  async changeEmail(
+    @Param("id") id: string,
+    @Body() changeEmailRequestDto: ChangeEmailDto,
+  ) {
+    const result = await this.commandBus.execute<ChangeEmailCommand, string>(
+      new ChangeEmailCommand(id, changeEmailRequestDto.newEmail),
+    );
+
+    return { newEmail: result };
+  }
+
+  @Delete(":id")
+  async withdraw(@Param("id") id: string) {
+    const memberId: string = await this.commandBus.execute<
+      MemberWithdrawCommand,
+      string
+    >(new MemberWithdrawCommand(id));
 
     return { id: memberId };
   }

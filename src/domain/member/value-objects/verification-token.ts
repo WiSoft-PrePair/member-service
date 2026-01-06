@@ -1,5 +1,4 @@
 import { randomUUID } from "crypto";
-import { email } from "zod";
 
 export class VerificationToken {
   private constructor(

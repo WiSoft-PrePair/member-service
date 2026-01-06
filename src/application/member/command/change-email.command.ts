@@ -24,16 +24,15 @@ import {
 export class ChangeEmailCommand implements ICommand {
   constructor(
     public readonly memberId: string,
-    public readonly verificationToken: string,
+    public readonly newEmail: string,
   ) {}
 }
 
 @Injectable()
 @CommandHandler(ChangeEmailCommand)
-export class VerifyChangeEmailCommandHandler implements ICommandHandler<
-  ChangeEmailCommand,
-  string
-> {
+export class VerifyChangeEmailCommandHandler
+  implements ICommandHandler<ChangeEmailCommand, string>
+{
   constructor(
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepository: MemberRepository,
@@ -46,20 +45,19 @@ export class VerifyChangeEmailCommandHandler implements ICommandHandler<
 
   @Transactional()
   async execute(command: ChangeEmailCommand): Promise<string> {
-    const { memberId, verificationToken } = command;
+    const { memberId, newEmail } = command;
 
-    const newEmail: string | null =
-      this.emailVerificationService.consumeToken(verificationToken);
-
-    if (!newEmail) {
+    if (!this.emailVerificationService.isEmailVerified(newEmail)) {
       throw new InvalidVerificationCodeException();
     }
+
+    this.emailVerificationService.consumeVerifiedEmail(newEmail);
 
     const member: Member | null =
       await this.memberRepository.findById(memberId);
 
     if (!member) {
-      throw new NotFoundException(`해당 해원이 없습니다.`);
+      throw new NotFoundException(`해당 회원이 없습니다.`);
     }
 
     const updateMember: Member = member.changeEmail(newEmail);

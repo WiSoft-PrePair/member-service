@@ -1,10 +1,7 @@
 import { CommandHandler, ICommand, ICommandHandler } from "@nestjs/cqrs";
 import { Injectable } from "@nestjs/common";
 import { EmailVerificationService } from "@/application/member";
-import {
-  InvalidVerificationCodeException,
-  VerificationToken,
-} from "@/domain/member";
+import { InvalidVerificationCodeException } from "@/domain/member";
 
 export class VerifyEmailCommand implements ICommand {
   constructor(
@@ -15,25 +12,23 @@ export class VerifyEmailCommand implements ICommand {
 
 @Injectable()
 @CommandHandler(VerifyEmailCommand)
-export class VerifyEmailCommandHandler implements ICommandHandler<
-  VerifyEmailCommand,
-  string
-> {
+export class VerifyEmailCommandHandler
+  implements ICommandHandler<VerifyEmailCommand, { verified: boolean }>
+{
   constructor(
     private readonly emailVerificationService: EmailVerificationService,
   ) {}
 
   // eslint-disable-next-line @typescript-eslint/require-await
-  async execute(command: VerifyEmailCommand): Promise<string> {
+  async execute(command: VerifyEmailCommand): Promise<{ verified: boolean }> {
     const { email, code } = command;
 
-    const token: VerificationToken | null =
-      this.emailVerificationService.verifyCode(email, code);
+    const verified = this.emailVerificationService.verifyCode(email, code);
 
-    if (!token) {
+    if (!verified) {
       throw new InvalidVerificationCodeException();
     }
 
-    return token.getValue(); // 검증 토큰 반환
+    return { verified: true };
   }
 }
