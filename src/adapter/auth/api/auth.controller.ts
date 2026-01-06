@@ -22,9 +22,10 @@ import {
   LoginRequestDto,
   LogoutRequestDto,
   RefreshTokenRequestDto,
-} from "@/adapter/auth/api/dto";
-import { CurrentUser } from "@/adapter/auth/api/decorators/current-user.decorator";
-import { type User } from "@/adapter/shared/api/types/user";
+}                      from "@/adapter/auth/api/dto";
+import { CurrentUser } from "@/adapter/shared/api/decorators/current-user.decorator";
+import { type User }   from "@/adapter/shared/api/types/user";
+import { Public } from "@/adapter/shared/api/decorators/public.decorator";
 
 @Controller("api/auth")
 export class AuthController {
@@ -36,6 +37,7 @@ export class AuthController {
     private readonly memberReadRepository: MemberReadRepository,
   ) {}
 
+  @Public()
   @Post("login")
   async login(@Body() loginRequestDto: LoginRequestDto) {
     const loginResult: { memberId: string; email: string } =
@@ -58,6 +60,7 @@ export class AuthController {
     };
   }
 
+  @Public()
   @Post("refresh")
   async refresh(@Body() refreshToken: RefreshTokenRequestDto) {
     const memberId: string = await this.refreshTokenService.verify(
@@ -88,6 +91,7 @@ export class AuthController {
     };
   }
 
+  @Public()
   @Post("logout")
   async logout(
     @Body() logoutRequestDto: LogoutRequestDto,
@@ -97,7 +101,6 @@ export class AuthController {
   }
 
   @Get("me")
-  @UseGuards(JwtAuthGuard)
   getUser(@CurrentUser() user: User) {
     return {
       memberId: user.memberId,

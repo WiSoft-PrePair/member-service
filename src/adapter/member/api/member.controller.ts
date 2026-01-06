@@ -28,8 +28,9 @@ import {
 } from "@/application/member/command";
 import { GetMemberQuery, GetMemberResult } from "@/application/member/query";
 import { JwtAuthGuard } from "@/adapter/auth/security";
-import { CurrentUser } from "@/adapter/auth/api/decorators/current-user.decorator";
-import { type User } from "@/adapter/shared/api/types/user";
+import { CurrentUser }  from "@/adapter/shared/api/decorators/current-user.decorator";
+import { type User }    from "@/adapter/shared/api/types/user";
+import { Public } from "@/adapter/shared/api/decorators/public.decorator";
 
 @Controller("api/members")
 export class MemberController {
@@ -38,6 +39,7 @@ export class MemberController {
     private readonly queryBus: QueryBus,
   ) {}
 
+  @Public()
   @Post("register")
   async register(@Body() registerDto: RegisterMemberDto) {
     const memberId: string = await this.commandBus.execute<
@@ -57,6 +59,7 @@ export class MemberController {
     return { id: memberId };
   }
 
+  @Public()
   @Get(":id")
   async getMember(@Param("id") id: string): Promise<GetMemberResult> {
     return this.queryBus.execute<GetMemberQuery, GetMemberResult>(
@@ -64,10 +67,7 @@ export class MemberController {
     );
   }
 
-  /**
-   * 이메일 검증 코드 발송 (회원가입/이메일변경 공용)
-   * POST /members/email/send-verification
-   */
+  @Public()
   @Post("email")
   async sendEmailVerification(@Body() dto: SendEmailVerificationDto) {
     await this.commandBus.execute(
@@ -80,10 +80,7 @@ export class MemberController {
     };
   }
 
-  /**
-   * 이메일 검증 코드 확인
-   * POST /members/email/verify
-   */
+  @Public()
   @Post("email-verify")
   async verifyEmail(@Body() dto: VerifyEmailDto) {
     const result = await this.commandBus.execute<VerifyEmailCommand, string>(
@@ -94,7 +91,6 @@ export class MemberController {
   }
 
   @Patch()
-  @UseGuards(JwtAuthGuard)
   async update(
     @CurrentUser() user: User,
     @Body() updateMemberRequestDto: UpdateMemberDto,
@@ -116,7 +112,6 @@ export class MemberController {
   }
 
   @Patch("password")
-  @UseGuards(JwtAuthGuard)
   async changePassword(
     @CurrentUser() user: User,
     @Body() changePasswordRequestDto: ChangePasswordDto,
@@ -136,7 +131,6 @@ export class MemberController {
   }
 
   @Patch("email")
-  @UseGuards(JwtAuthGuard)
   async changeEmail(
     @CurrentUser() user: User,
     @Body() changeEmailRequestDto: ChangeEmailDto,
@@ -149,7 +143,6 @@ export class MemberController {
   }
 
   @Delete()
-  @UseGuards(JwtAuthGuard)
   async withdraw(@CurrentUser() user: User) {
     const memberId: string = await this.commandBus.execute<
       MemberWithdrawCommand,
