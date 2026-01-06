@@ -8,6 +8,8 @@ export interface MemberRepository {
   update(member: Member): Member;
 
   findById(id: string): Promise<Member | null>;
+
+  findByEmail(email: string): Promise<Member | null>;
 }
 
 export const MEMBER_REPOSITORY = Symbol("MemberRepository");

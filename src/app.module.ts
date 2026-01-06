@@ -5,9 +5,10 @@ import { ConfigModule } from "@nestjs/config";
 import { envSchema } from "@/config/env.config";
 import { CqrsModule } from "@nestjs/cqrs";
 import { AuthModule } from "@/adapter/auth/auth.module";
-import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { TransformResponseInterceptor } from "@/adapter/shared/api/interceptors/transform-response.interceptor";
 import { HttpExceptionFilter } from "@/adapter/shared/api/filters/http-exception.filter";
+import { JwtAuthGuard } from "@/adapter/auth/security";
 
 @Module({
   imports: [
@@ -29,6 +30,10 @@ import { HttpExceptionFilter } from "@/adapter/shared/api/filters/http-exception
     {
       provide: APP_FILTER,
       useClass: HttpExceptionFilter,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
     },
   ],
 })

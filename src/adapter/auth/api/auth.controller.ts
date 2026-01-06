@@ -5,27 +5,24 @@ import {
   Inject,
   NotFoundException,
   Post,
-  UseGuards,
 } from "@nestjs/common";
 import {
   MEMBER_READ_REPOSITORY,
   MemberReadEntity,
   type MemberReadRepository,
 } from "@/adapter/member/persistence/read";
-import {
-  JwtAuthGuard,
-  JwtService,
-  TokenResponse,
-} from "@/adapter/auth/security";
+import { JwtService, TokenResponse } from "@/adapter/auth/security";
 import { AuthService, RefreshTokenService } from "@/application/auth";
 import {
   LoginRequestDto,
   LogoutRequestDto,
   RefreshTokenRequestDto,
 } from "@/adapter/auth/api/dto";
-import { CurrentUser } from "@/adapter/auth/api/decorators/current-user.decorator";
+import { CurrentUser } from "@/adapter/shared/api/decorators/current-user.decorator";
+import { type User } from "@/adapter/shared/api/types/user";
+import { Public } from "@/adapter/shared/api/decorators/public.decorator";
 
-@Controller("auth")
+@Controller("api/auth")
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
@@ -35,6 +32,7 @@ export class AuthController {
     private readonly memberReadRepository: MemberReadRepository,
   ) {}
 
+  @Public()
   @Post("login")
   async login(@Body() loginRequestDto: LoginRequestDto) {
     const loginResult: { memberId: string; email: string } =
@@ -57,6 +55,7 @@ export class AuthController {
     };
   }
 
+  @Public()
   @Post("refresh")
   async refresh(@Body() refreshToken: RefreshTokenRequestDto) {
     const memberId: string = await this.refreshTokenService.verify(
@@ -87,6 +86,7 @@ export class AuthController {
     };
   }
 
+  @Public()
   @Post("logout")
   async logout(
     @Body() logoutRequestDto: LogoutRequestDto,
@@ -96,8 +96,7 @@ export class AuthController {
   }
 
   @Get("me")
-  @UseGuards(JwtAuthGuard)
-  getUser(@CurrentUser() user: { memberId: string; email: string }) {
+  getUser(@CurrentUser() user: User) {
     return {
       memberId: user.memberId,
       email: user.email,

@@ -44,4 +44,16 @@ export class MemberRepositoryImpl implements MemberRepository {
 
     return this.mapper.toDomain(entity);
   }
+
+  async findByEmail(email: string): Promise<Member | null> {
+    const entity: MemberEntity | null = await this.em.findOne(MemberEntity, {
+      email,
+    });
+
+    if (!entity) {
+      return null;
+    }
+
+    return this.mapper.toDomain(entity);
+  }
 }
