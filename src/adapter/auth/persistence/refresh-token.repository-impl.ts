@@ -13,7 +13,7 @@ export class RefreshTokenRepositoryImpl implements RefreshTokenRepository {
       entity,
     );
 
-    await this.em.persist(refreshToken).flush();
+    this.em.persist(refreshToken);
   }
 
   findByToken(token: string): Promise<RefreshTokenEntity | null> {
@@ -27,7 +27,8 @@ export class RefreshTokenRepositoryImpl implements RefreshTokenRepository {
     );
 
     if (entity) {
-      await this.em.remove(entity).flush();
+      this.em.remove(entity);
+      await this.em.flush();
     }
   }
 
@@ -38,7 +39,8 @@ export class RefreshTokenRepositoryImpl implements RefreshTokenRepository {
     );
 
     if (entity) {
-      await this.em.remove(entity).flush();
+      this.em.remove(entity);
+      await this.em.flush();
     }
   }
 

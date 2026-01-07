@@ -17,7 +17,10 @@ export class KakaoOauthController {
   // 카카오 인가 URL 반환
   @Public()
   @Get("url")
-  getAuthorizationUrl(@Query("state") state?: string) {
+  getAuthorizationUrl(
+    @Query("state") state?: string,
+    @Query("prompt") prompt?: string,
+  ) {
     const clientId: string = this.configService.getOrThrow("KAKAO_CLIENT_ID");
     const redirectUri: string =
       this.configService.getOrThrow("KAKAO_REDIRECT_URI");
@@ -26,8 +29,13 @@ export class KakaoOauthController {
     url.searchParams.set("client_id", clientId);
     url.searchParams.set("redirect_uri", redirectUri);
     url.searchParams.set("response_type", "code");
+
     if (state) {
       url.searchParams.set("state", state);
+    }
+
+    if (prompt) {
+      url.searchParams.set("prompt", prompt);
     }
 
     return { url: url.toString() };
