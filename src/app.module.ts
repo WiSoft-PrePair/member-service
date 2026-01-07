@@ -9,6 +9,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { TransformResponseInterceptor } from "@/adapter/shared/api/interceptors/transform-response.interceptor";
 import { HttpExceptionFilter } from "@/adapter/shared/api/filters/http-exception.filter";
 import { JwtAuthGuard } from "@/adapter/auth/security";
+import { OAuthModule } from "@/adapter/oauth/oauth.module";
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { JwtAuthGuard } from "@/adapter/auth/security";
     PersistenceModule,
     MemberModule,
     AuthModule,
+    OAuthModule,
   ],
   controllers: [],
   providers: [

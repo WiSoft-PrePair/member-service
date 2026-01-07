@@ -42,5 +42,9 @@ import { JwtService, JwtStrategy } from "@/adapter/auth/security";
       useClass: RefreshTokenRepositoryImpl,
     },
   ],
+  exports: [
+    JwtService,
+    RefreshTokenService,
+  ],
 })
 export class AuthModule {}

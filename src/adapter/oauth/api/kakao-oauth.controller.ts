@@ -1,0 +1,44 @@
+import { Body, Controller, Get, Post, Query } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { Public } from "@/adapter/shared/api/decorators/public.decorator";
+import {
+  OauthCallbackDto,
+  OauthLoginResponseDto,
+} from "@/adapter/oauth/api/dto";
+import { KakaoAuthService } from "@/application/oauth/kakao-auth.service";
+
+@Controller("api/auth/kakao")
+export class KakaoOauthController {
+  constructor(
+    private readonly kakaoAuthService: KakaoAuthService,
+    private readonly configService: ConfigService,
+  ) {}
+
+  // 카카오 인가 URL 반환
+  @Public()
+  @Get("url")
+  getAuthorizationUrl(@Query("state") state?: string) {
+    const clientId: string = this.configService.getOrThrow("KAKAO_CLIENT_ID");
+    const redirectUri: string =
+      this.configService.getOrThrow("KAKAO_REDIRECT_URI");
+
+    const url = new URL("https://kauth.kakao.com/oauth/authorize");
+    url.searchParams.set("client_id", clientId);
+    url.searchParams.set("redirect_uri", redirectUri);
+    url.searchParams.set("response_type", "code");
+    if (state) {
+      url.searchParams.set("state", state);
+    }
+
+    return { url: url.toString() };
+  }
+
+  // 카카오 로그인
+  @Public()
+  @Post("callback")
+  async callback(
+    @Body() dto: OauthCallbackDto,
+  ): Promise<OauthLoginResponseDto> {
+    return this.kakaoAuthService.handleCallback(dto.code);
+  }
+}
