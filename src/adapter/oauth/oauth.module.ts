@@ -32,7 +32,7 @@ import { EventStoreModule } from "@/adapter/shared/event-store";
     }),
     MemberModule,
     AuthModule,
-    EventStoreModule
+    EventStoreModule,
   ],
   controllers: [KakaoOauthController],
   providers: [

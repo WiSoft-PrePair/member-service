@@ -1,21 +1,7 @@
 import { Injectable } from "@nestjs/common";
-import { MemberReadEntity } from "./entity/member-read.entity";
 import { EntityManager } from "@mikro-orm/core";
-
-export interface MemberReadRepository {
-  save(entity: MemberReadEntity): void;
-
-  findById(id: string): Promise<MemberReadEntity | null>;
-
-  findByEmail(email: string): Promise<MemberReadEntity | null>;
-
-  findAll(options?: {
-    limit?: number;
-    offset?: number;
-  }): Promise<MemberReadEntity[]>;
-
-  withdraw(id: string): Promise<number>;
-}
+import { MemberReadEntity } from "./entity/member-read.entity";
+import { MemberReadRepository } from "@/application/member/ports";
 
 @Injectable()
 export class MemberReadRepositoryImpl implements MemberReadRepository {
@@ -52,5 +38,3 @@ export class MemberReadRepositoryImpl implements MemberReadRepository {
     return await this.em.nativeDelete(MemberReadEntity, { id });
   }
 }
-
-export const MEMBER_READ_REPOSITORY = Symbol("MemberReadRepository");

@@ -6,11 +6,11 @@ import {
   NotFoundException,
   Post,
 } from "@nestjs/common";
+import { MemberReadEntity } from "@/adapter/member/persistence/read";
 import {
   MEMBER_READ_REPOSITORY,
-  MemberReadEntity,
   type MemberReadRepository,
-} from "@/adapter/member/persistence/read";
+} from "@/application/member/ports";
 import { JwtService, TokenResponse } from "@/adapter/auth/security";
 import { AuthService, RefreshTokenService } from "@/application/auth";
 import {

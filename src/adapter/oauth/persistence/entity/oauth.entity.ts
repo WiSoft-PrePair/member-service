@@ -1,6 +1,6 @@
 import { Entity, PrimaryKey, Property } from "@mikro-orm/core";
 
-@Entity()
+@Entity({ tableName: "oauth_connections" })
 export class OAuthConnectionEntity {
   @PrimaryKey({ type: "uuid" })
   id!: string;

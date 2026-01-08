@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { RefreshTokenRepository } from "@/adapter/auth/persistence/refresh-token.repository";
+import { RefreshTokenRepository } from "@/application/auth/ports";
 import { RefreshTokenEntity } from "./entity/refresh-token.entity";
 import { EntityManager } from "@mikro-orm/core";
 

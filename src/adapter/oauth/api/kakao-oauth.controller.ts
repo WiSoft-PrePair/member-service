@@ -4,7 +4,6 @@ import { Public } from "@/adapter/shared/api/decorators/public.decorator";
 import {
   OauthCallbackDto,
   OauthCompleteRegisterDto,
-  OauthLoginResponseDto,
 } from "@/adapter/oauth/api/dto";
 import { KakaoAuthService } from "@/application/oauth/kakao-auth.service";
 

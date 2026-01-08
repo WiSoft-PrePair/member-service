@@ -1,10 +1,10 @@
 import { CommandHandler, ICommand, ICommandHandler } from "@nestjs/cqrs";
 import { Inject, Injectable } from "@nestjs/common";
+import { MemberReadEntity } from "@/adapter/member/persistence/read";
 import {
   MEMBER_READ_REPOSITORY,
-  MemberReadEntity,
   type MemberReadRepository,
-} from "@/adapter/member/persistence/read";
+} from "@/application/member/ports";
 import {
   EMAIL_SERVICE,
   type EmailService,

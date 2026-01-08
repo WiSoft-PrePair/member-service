@@ -1,7 +1,7 @@
-import { OAuthProvider } from "@/domain/oauth";
 import { Injectable, UnauthorizedException } from "@nestjs/common";
-import { OAuthRegistrationPayload } from "@/adapter/oauth/kakao/types/kakao-oauth.types";
 import { JwtService as NestJwtService } from "@nestjs/jwt";
+import { OAuthProvider } from "@/domain/oauth";
+import { OAuthRegistrationPayload } from "@/application/oauth/types";
 
 export interface RegistrationTokenData {
   email: string;

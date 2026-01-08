@@ -1,9 +1,6 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import {
-  KakaoTokenResponse,
-  KakaoUserInfo,
-} from "@/adapter/oauth/kakao/types/kakao-oauth.types";
+import { KakaoTokenResponse } from "@/adapter/oauth/kakao/types/kakao-oauth.types";
 
 @Injectable()
 export class KakaoOauthService {
@@ -39,7 +36,9 @@ export class KakaoOauthService {
     if (!response.ok) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const error = await response.json();
-      throw new UnauthorizedException(`카카오 토큰 교환 실패: ${error.error_description}, ${error.error}`);
+      throw new UnauthorizedException(
+        `카카오 토큰 교환 실패: ${error.error_description}, ${error.error}`,
+      );
     }
 
     return response.json();

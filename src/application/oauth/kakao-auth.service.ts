@@ -22,7 +22,7 @@ import {
 import {
   MEMBER_READ_REPOSITORY,
   type MemberReadRepository,
-} from "@/adapter/member/persistence/read";
+} from "@/application/member/ports";
 import { EntityManager } from "@mikro-orm/postgresql";
 import {
   KakaoUserInfo,
