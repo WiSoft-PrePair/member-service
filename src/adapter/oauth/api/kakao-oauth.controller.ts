@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { Public } from "@/adapter/shared/api/decorators/public.decorator";
 import {
   OauthCallbackDto,
+  OauthCompleteRegisterDto,
   OauthLoginResponseDto,
 } from "@/adapter/oauth/api/dto";
 import { KakaoAuthService } from "@/application/oauth/kakao-auth.service";
@@ -44,9 +45,18 @@ export class KakaoOauthController {
   // 카카오 로그인
   @Public()
   @Post("callback")
-  async callback(
-    @Body() dto: OauthCallbackDto,
-  ): Promise<OauthLoginResponseDto> {
+  async callback(@Body() dto: OauthCallbackDto) {
     return this.kakaoAuthService.handleCallback(dto.code);
+  }
+
+  @Public()
+  @Post("register")
+  async register(@Body() dto: OauthCompleteRegisterDto) {
+    return this.kakaoAuthService.completeRegistration(
+      dto.registrationToken,
+      dto.job,
+      dto.notification,
+      dto.frequency,
+    );
   }
 }

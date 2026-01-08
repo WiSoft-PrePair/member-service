@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { MikroOrmModule } from "@mikro-orm/nestjs";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { JwtModule, type JwtModuleOptions } from "@nestjs/jwt";
+import { CqrsModule } from "@nestjs/cqrs";
 import { OAuthConnectionEntity } from "@/adapter/oauth/persistence/entity/oauth.entity";
 import { MemberModule } from "@/adapter/member/member.module";
 import { AuthModule } from "@/adapter/auth/auth.module";
@@ -12,10 +13,13 @@ import { OAuthConnectionMapper } from "@/adapter/oauth/persistence/mapper/oauth.
 import { OAUTH_REPOSITORY } from "@/domain/oauth";
 import { OAuthConnectionRepositoryImpl } from "@/adapter/oauth/persistence/oauth.repository-impl";
 import { OAuthRegistrationTokenService } from "@/application/oauth/oauth-registration-token.service";
+import { OAuthMemberRegisterCommandHandler } from "@/application/oauth/command/oauth-member-register.command";
+import { EventStoreModule } from "@/adapter/shared/event-store";
 
 @Module({
   imports: [
     MikroOrmModule.forFeature([OAuthConnectionEntity]),
+    CqrsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -28,6 +32,7 @@ import { OAuthRegistrationTokenService } from "@/application/oauth/oauth-registr
     }),
     MemberModule,
     AuthModule,
+    EventStoreModule
   ],
   controllers: [KakaoOauthController],
   providers: [
@@ -35,6 +40,7 @@ import { OAuthRegistrationTokenService } from "@/application/oauth/oauth-registr
     KakaoAuthService,
     OAuthRegistrationTokenService,
     OAuthConnectionMapper,
+    OAuthMemberRegisterCommandHandler,
     {
       provide: OAUTH_REPOSITORY,
       useClass: OAuthConnectionRepositoryImpl,
