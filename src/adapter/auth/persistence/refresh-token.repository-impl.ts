@@ -14,6 +14,7 @@ export class RefreshTokenRepositoryImpl implements RefreshTokenRepository {
     );
 
     this.em.persist(refreshToken);
+    await this.em.flush();
   }
 
   findByToken(token: string): Promise<RefreshTokenEntity | null> {
