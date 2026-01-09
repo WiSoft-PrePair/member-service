@@ -15,6 +15,7 @@ import {
   MemberUpdateEventHandler,
   MemberWithdrawEventHandler,
 } from "@/application/member/event";
+import { GetMemberEmailQueryHandler } from "@/application/member/query/get-member-email.query";
 
 export const CommandHandlers = [
   MemberRegisterCommandHandler,
@@ -26,7 +27,7 @@ export const CommandHandlers = [
   VerifyChangeEmailCommandHandler,
 ];
 
-export const QueryHandlers = [GetMemberHandler];
+export const QueryHandlers = [GetMemberHandler, GetMemberEmailQueryHandler];
 
 export const EventHandlers = [
   MemberRegisterEventHandler,
