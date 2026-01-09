@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { RefreshTokenRepository } from "@/adapter/auth/persistence/refresh-token.repository";
+import { RefreshTokenRepository } from "@/application/auth/ports";
 import { RefreshTokenEntity } from "./entity/refresh-token.entity";
 import { EntityManager } from "@mikro-orm/core";
 
@@ -13,7 +13,8 @@ export class RefreshTokenRepositoryImpl implements RefreshTokenRepository {
       entity,
     );
 
-    await this.em.persist(refreshToken).flush();
+    this.em.persist(refreshToken);
+    await this.em.flush();
   }
 
   findByToken(token: string): Promise<RefreshTokenEntity | null> {
@@ -27,7 +28,8 @@ export class RefreshTokenRepositoryImpl implements RefreshTokenRepository {
     );
 
     if (entity) {
-      await this.em.remove(entity).flush();
+      this.em.remove(entity);
+      await this.em.flush();
     }
   }
 
@@ -38,7 +40,8 @@ export class RefreshTokenRepositoryImpl implements RefreshTokenRepository {
     );
 
     if (entity) {
-      await this.em.remove(entity).flush();
+      this.em.remove(entity);
+      await this.em.flush();
     }
   }
 

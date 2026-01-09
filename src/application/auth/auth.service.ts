@@ -4,11 +4,11 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from "@nestjs/common";
+import { MemberReadEntity } from "@/adapter/member/persistence/read";
 import {
   MEMBER_READ_REPOSITORY,
-  MemberReadEntity,
   type MemberReadRepository,
-} from "@/adapter/member/persistence/read";
+} from "@/application/member/ports";
 import {
   Member,
   MEMBER_REPOSITORY,
@@ -51,7 +51,6 @@ export class AuthService {
       );
     }
 
-    // Update activity in read model
     const readEntity: MemberReadEntity | null =
       await this.memberReadRepository.findByEmail(request.email);
 

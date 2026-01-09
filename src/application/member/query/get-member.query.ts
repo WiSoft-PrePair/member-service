@@ -1,10 +1,10 @@
 import { IQuery, IQueryHandler, QueryHandler } from "@nestjs/cqrs";
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { MemberReadEntity } from "@/adapter/member/persistence/read";
 import {
   MEMBER_READ_REPOSITORY,
-  MemberReadEntity,
   type MemberReadRepository,
-} from "@/adapter/member/persistence/read";
+} from "@/application/member/ports";
 
 export class GetMemberResult {
   constructor(

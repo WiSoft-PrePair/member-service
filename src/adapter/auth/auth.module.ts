@@ -1,5 +1,5 @@
 import { Module } from "@nestjs/common";
-import { REFRESH_TOKEN_REPOSITORY } from "@/adapter/auth/persistence/refresh-token.repository";
+import { REFRESH_TOKEN_REPOSITORY } from "@/application/auth/ports";
 import { RefreshTokenRepositoryImpl } from "@/adapter/auth/persistence/refresh-token.repository-impl";
 import { PassportModule } from "@nestjs/passport";
 import { JwtModule, type JwtModuleOptions } from "@nestjs/jwt";
@@ -42,5 +42,6 @@ import { JwtService, JwtStrategy } from "@/adapter/auth/security";
       useClass: RefreshTokenRepositoryImpl,
     },
   ],
+  exports: [JwtService, RefreshTokenService],
 })
 export class AuthModule {}

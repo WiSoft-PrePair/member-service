@@ -12,11 +12,11 @@ import {
   type EventStore,
 } from "@/domain/shared";
 import { EntityManager } from "@mikro-orm/core";
+import { MemberReadEntity } from "@/adapter/member/persistence/read";
 import {
   MEMBER_READ_REPOSITORY,
-  MemberReadEntity,
   type MemberReadRepository,
-} from "@/adapter/member/persistence/read";
+} from "@/application/member/ports";
 import { MemberWithdrawEvent } from "@/domain/member/events";
 
 export class MemberWithdrawCommand implements ICommand {

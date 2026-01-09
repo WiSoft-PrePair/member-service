@@ -13,10 +13,13 @@ export const envSchema = z.object({
   JWT_REFRESH_TOKEN_EXPIRES_IN: z.string().default("7d"),
 
   SMTP_HOST: z.string(),
-  // SMTP_PORT: z.number().default(587),
   SMTP_USER: z.string(),
   SMTP_PASS: z.string(),
   SMTP_FROM: z.string(),
+
+  KAKAO_CLIENT_ID: z.string(),
+  KAKAO_CLIENT_SECRET: z.string(),
+  KAKAO_REDIRECT_URI: z.string(),
 });
 
 export type Env = z.infer<typeof envSchema>;
