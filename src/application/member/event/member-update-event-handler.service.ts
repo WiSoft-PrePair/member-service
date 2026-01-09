@@ -6,9 +6,7 @@ import { EntityManager } from "@mikro-orm/postgresql";
 
 @Injectable()
 @EventsHandler(MemberUpdateEvent)
-export class MemberUpdateEventHandler
-  implements IEventHandler<MemberUpdateEvent>
-{
+export class MemberUpdateEventHandler implements IEventHandler<MemberUpdateEvent> {
   private readonly logger: Logger = new Logger(MemberUpdateEventHandler.name);
 
   constructor(private readonly em: EntityManager) {}
@@ -16,7 +14,7 @@ export class MemberUpdateEventHandler
   async handle(event: MemberUpdateEvent) {
     this.logger.log(`회원정보 수정 이벤트 시작: ${event.memberId}`);
 
-    const em = this.em.fork();
+    const em: EntityManager = this.em.fork();
 
     const entity: MemberReadEntity | null = await em.findOne(MemberReadEntity, {
       id: event.memberId,

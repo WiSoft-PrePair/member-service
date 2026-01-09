@@ -6,9 +6,7 @@ import { EntityManager } from "@mikro-orm/core";
 
 @Injectable()
 @EventsHandler(MemberRegisterEvent)
-export class MemberRegisterEventHandler
-  implements IEventHandler<MemberRegisterEvent>
-{
+export class MemberRegisterEventHandler implements IEventHandler<MemberRegisterEvent> {
   private readonly logger: Logger = new Logger(MemberRegisterEventHandler.name);
 
   constructor(private readonly em: EntityManager) {}
@@ -16,7 +14,7 @@ export class MemberRegisterEventHandler
   async handle(event: MemberRegisterEvent): Promise<void> {
     this.logger.log(`회원가입 이벤트 시작: ${event.memberId}`);
 
-    const em = this.em.fork();
+    const em: EntityManager = this.em.fork();
 
     const readEntity = new MemberReadEntity();
     readEntity.id = event.memberId;

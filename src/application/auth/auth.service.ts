@@ -51,7 +51,6 @@ export class AuthService {
       );
     }
 
-    // Update activity in read model
     const readEntity: MemberReadEntity | null =
       await this.memberReadRepository.findByEmail(request.email);
 

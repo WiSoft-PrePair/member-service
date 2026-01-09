@@ -14,7 +14,7 @@ import {
   PASSWORD_ENCODER,
   type PasswordEncoder,
 } from "@/domain/member";
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, UnauthorizedException } from "@nestjs/common";
 import {
   createDomainEvent,
   EVENT_STORE,
@@ -37,9 +37,10 @@ export class MemberRegisterCommand implements ICommand {
 
 @Injectable()
 @CommandHandler(MemberRegisterCommand)
-export class MemberRegisterCommandHandler
-  implements ICommandHandler<MemberRegisterCommand, string>
-{
+export class MemberRegisterCommandHandler implements ICommandHandler<
+  MemberRegisterCommand,
+  string
+> {
   constructor(
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepository: MemberRepository,
@@ -55,7 +56,7 @@ export class MemberRegisterCommandHandler
   @Transactional()
   async execute(command: MemberRegisterCommand): Promise<string> {
     if (!this.emailVerificationService.isEmailVerified(command.email)) {
-      throw new InvalidVerificationTokenException();
+      throw new UnauthorizedException(`이메일 검증을 해주세요.`);
     }
 
     this.emailVerificationService.consumeVerifiedEmail(command.email);

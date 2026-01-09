@@ -81,11 +81,9 @@ export class MemberController {
   @Public()
   @Post("email-verify")
   async verifyEmail(@Body() dto: VerifyEmailDto) {
-    const result = await this.commandBus.execute<VerifyEmailCommand, string>(
+    return await this.commandBus.execute<VerifyEmailCommand, string>(
       new VerifyEmailCommand(dto.email, dto.code),
     );
-
-    return result;
   }
 
   @Patch()
