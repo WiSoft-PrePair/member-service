@@ -5,6 +5,6 @@ export class SendEmailVerificationDto {
   @IsEmail()
   email: string;
 
-  @IsIn(["REGISTER", "CHANGE_EMAIL"])
+  @IsIn(["REGISTER", "CHANGE_EMAIL", "PASSWORD_RESET"])
   purpose: EmailVerificationPurpose;
 }

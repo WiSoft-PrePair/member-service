@@ -23,6 +23,11 @@ import { EmailVerificationService } from "@/application/member";
 import { Transactional } from "@mikro-orm/core";
 import { MemberPasswordResetEvent } from "@/domain/member/events/member-password-reset.event";
 
+export interface ResetPasswordResult {
+  memberId: string;
+  temporaryPassword: string;
+}
+
 export class ResetPasswordCommand implements ICommand {
   constructor(
     public readonly email: string,
@@ -46,7 +51,7 @@ export class ResetPasswordCommandHandler implements ICommandHandler<ResetPasswor
   ) {}
 
   @Transactional()
-  async execute(command: ResetPasswordCommand): Promise<any> {
+  async execute(command: ResetPasswordCommand): Promise<ResetPasswordResult> {
     const isValid: boolean = this.emailVerificationService.verifyCode(
       command.email,
       command.verificationCode,
@@ -64,9 +69,7 @@ export class ResetPasswordCommandHandler implements ICommandHandler<ResetPasswor
       throw new NotFoundException("Member");
     }
 
-    const tempPassword: string = Math.floor(Math.random() * 10000)
-      .toString()
-      .padStart(4, "0");
+    const tempPassword: string = this.generateTemporaryPassword();
 
     const updatedMember: Member = existMember.resetPassword(
       tempPassword,
@@ -85,17 +88,40 @@ export class ResetPasswordCommandHandler implements ICommandHandler<ResetPasswor
     await this.em.flush();
 
     this.eventBus.publish(
-      new MemberPasswordResetEvent(
-        updatedMember.id,
-        updatedMember.password.value,
-      ),
+      new MemberPasswordResetEvent(updatedMember.id, tempPassword),
     );
 
     this.emailVerificationService.consumeVerifiedEmail(command.email);
 
     return {
       memberId: updatedMember.id,
-      newPassword: tempPassword,
+      temporaryPassword: tempPassword,
     };
+  }
+
+  private generateTemporaryPassword() {
+    const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const lowercase = "abcdefghijklmnopqrstuvwxyz";
+    const numbers = "0123456789";
+    const special = "!@#$%^&*";
+    const all = uppercase + lowercase + numbers + special;
+
+    // 최소 조건 만족 (대문자 1, 소문자 1, 숫자 1, 특수문자 1)
+    let password: string = "";
+    password += uppercase[Math.floor(Math.random() * uppercase.length)];
+    password += lowercase[Math.floor(Math.random() * lowercase.length)];
+    password += numbers[Math.floor(Math.random() * numbers.length)];
+    password += special[Math.floor(Math.random() * special.length)];
+
+    // 나머지 4자리 랜덤
+    for (let i = 0; i < 4; i++) {
+      password += all[Math.floor(Math.random() * all.length)];
+    }
+
+    // 셔플 (순서 예측 방지)
+    return password
+      .split("")
+      .sort(() => Math.random() - 0.5)
+      .join("");
   }
 }

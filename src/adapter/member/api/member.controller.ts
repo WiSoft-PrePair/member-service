@@ -12,6 +12,7 @@ import {
   ChangeEmailDto,
   type ChangePasswordDto,
   type RegisterMemberDto,
+  ResetPasswordDto,
   SendEmailVerificationDto,
   UpdateMemberDto,
   VerifyEmailDto,
@@ -23,6 +24,8 @@ import {
   MemberRegisterCommand,
   MemberUpdateCommand,
   MemberWithdrawCommand,
+  ResetPasswordCommand,
+  ResetPasswordResult,
   SendEmailVerificationCommand,
   VerifyEmailCommand,
 } from "@/application/member/command";
@@ -139,6 +142,28 @@ export class MemberController {
     );
 
     return { id: memberId };
+  }
+
+  @Public()
+  @Post("password-reset")
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    const result: ResetPasswordResult = await this.commandBus.execute<
+      ResetPasswordCommand,
+      ResetPasswordResult
+    >(
+      new ResetPasswordCommand(
+        resetPasswordDto.email,
+        resetPasswordDto.verificationCode,
+      ),
+    );
+
+    return {
+      success: true,
+      memberId: result.memberId,
+      tempPassword: result.temporaryPassword,
+      message:
+        "비밀번호가 재설정되었습니다. 임시 비밀번호로 로그인 후 변경해주세요.",
+    };
   }
 
   @Patch("email")

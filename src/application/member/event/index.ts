@@ -3,3 +3,4 @@ export * from "./member-withdraw-event-handler.service";
 export * from "./member-update-event-handler.service";
 export * from "./member-password-changed-event-handler.service";
 export * from "./member-email-changed-event-handler.service";
+export * from "./member-password-reset-event-handler.service";
