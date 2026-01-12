@@ -6,7 +6,9 @@ import { MemberReadEntity } from "@/adapter/member/persistence/read";
 
 @Injectable()
 @EventsHandler(MemberPasswordResetEvent)
-export class MemberPasswordResetEventHandler implements IEventHandler<MemberPasswordResetEvent> {
+export class MemberPasswordResetEventHandler
+  implements IEventHandler<MemberPasswordResetEvent>
+{
   constructor(private readonly em: EntityManager) {}
 
   async handle(event: MemberPasswordResetEvent) {

@@ -23,10 +23,11 @@ export class TransformResponseInterceptor<T>
       map((data: any) => {
         // data에 message가 있으면 그것을 사용하고, data에서는 제거
         const customMessage = data?.message;
-        const finalMessage = customMessage || this.getSuccessMessage(statusCode);
+        const finalMessage =
+          customMessage || this.getSuccessMessage(statusCode);
 
         // data에서 message 제거
-        if (data && typeof data === 'object' && 'message' in data) {
+        if (data && typeof data === "object" && "message" in data) {
           const { message: _, ...rest } = data;
           return {
             statusCode,

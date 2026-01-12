@@ -16,10 +16,9 @@ export class GetMemberEmailQuery implements IQuery {
 
 @Injectable()
 @QueryHandler(GetMemberEmailQuery)
-export class GetMemberEmailQueryHandler implements IQueryHandler<
-  GetMemberEmailQuery,
-  GetMemberEmailResult
-> {
+export class GetMemberEmailQueryHandler
+  implements IQueryHandler<GetMemberEmailQuery, GetMemberEmailResult>
+{
   constructor(
     @Inject(MEMBER_READ_REPOSITORY)
     private readonly memberReadRepository: MemberReadRepository,
