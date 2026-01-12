@@ -12,7 +12,10 @@ import {
 } from "@/application/member";
 import { EmailAlreadyExistsException, VerificationCode } from "@/domain/member";
 
-export type EmailVerificationPurpose = "REGISTER" | "CHANGE_EMAIL";
+export type EmailVerificationPurpose =
+  | "REGISTER"
+  | "CHANGE_EMAIL"
+  | "PASSWORD_RESET";
 
 export class SendEmailVerificationCommand implements ICommand {
   constructor(
@@ -23,9 +26,10 @@ export class SendEmailVerificationCommand implements ICommand {
 
 @Injectable()
 @CommandHandler(SendEmailVerificationCommand)
-export class SendEmailVerificationCommandHandler
-  implements ICommandHandler<SendEmailVerificationCommand, void>
-{
+export class SendEmailVerificationCommandHandler implements ICommandHandler<
+  SendEmailVerificationCommand,
+  void
+> {
   constructor(
     @Inject(MEMBER_READ_REPOSITORY)
     private readonly memberReadRepository: MemberReadRepository,

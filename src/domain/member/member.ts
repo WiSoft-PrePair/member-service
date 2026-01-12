@@ -78,6 +78,22 @@ export class Member {
     });
   }
 
+  public resetPassword(password: string, encoder: PasswordEncoder): Member {
+    const newPassword: Password = Password.create(password, encoder);
+
+    return new Member({
+      id: this.id,
+      email: this.email,
+      password: newPassword,
+      job: this.job,
+      nickname: this.nickname,
+      notification: this.notification,
+      frequency: this.frequency,
+      point: this.point,
+      isPro: this.isPro,
+    });
+  }
+
   public changeEmail(newEmail: string): Member {
     const email: Email = new Email(newEmail);
 
