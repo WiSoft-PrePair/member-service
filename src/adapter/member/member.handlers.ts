@@ -2,6 +2,7 @@ import {
   ChangePasswordCommandHandler,
   MemberRegisterCommandHandler,
   MemberUpdateCommandHandler,
+  ResetPasswordCommandHandler,
   SendEmailVerificationCommandHandler,
   VerifyChangeEmailCommandHandler,
   VerifyEmailCommandHandler,
@@ -11,10 +12,12 @@ import { GetMemberHandler } from "@/application/member/query";
 import {
   MemberEmailChangedEventHandler,
   MemberPasswordChangedEventHandler,
+  MemberPasswordResetEventHandler,
   MemberRegisterEventHandler,
   MemberUpdateEventHandler,
   MemberWithdrawEventHandler,
 } from "@/application/member/event";
+import { GetMemberEmailQueryHandler } from "@/application/member/query/get-member-email.query";
 
 export const CommandHandlers = [
   MemberRegisterCommandHandler,
@@ -24,9 +27,10 @@ export const CommandHandlers = [
   SendEmailVerificationCommandHandler,
   VerifyEmailCommandHandler,
   VerifyChangeEmailCommandHandler,
+  ResetPasswordCommandHandler,
 ];
 
-export const QueryHandlers = [GetMemberHandler];
+export const QueryHandlers = [GetMemberHandler, GetMemberEmailQueryHandler];
 
 export const EventHandlers = [
   MemberRegisterEventHandler,
@@ -34,4 +38,5 @@ export const EventHandlers = [
   MemberUpdateEventHandler,
   MemberPasswordChangedEventHandler,
   MemberEmailChangedEventHandler,
+  MemberPasswordResetEventHandler,
 ];

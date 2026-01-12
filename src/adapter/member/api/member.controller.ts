@@ -6,11 +6,13 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from "@nestjs/common";
 import {
   ChangeEmailDto,
   type ChangePasswordDto,
   type RegisterMemberDto,
+  ResetPasswordDto,
   SendEmailVerificationDto,
   UpdateMemberDto,
   VerifyEmailDto,
@@ -22,6 +24,8 @@ import {
   MemberRegisterCommand,
   MemberUpdateCommand,
   MemberWithdrawCommand,
+  ResetPasswordCommand,
+  ResetPasswordResult,
   SendEmailVerificationCommand,
   VerifyEmailCommand,
 } from "@/application/member/command";
@@ -29,6 +33,10 @@ import { GetMemberQuery, GetMemberResult } from "@/application/member/query";
 import { CurrentUser } from "@/adapter/shared/api/decorators/current-user.decorator";
 import { type User } from "@/adapter/shared/api/types/user";
 import { Public } from "@/adapter/shared/api/decorators/public.decorator";
+import {
+  GetMemberEmailQuery,
+  GetMemberEmailResult,
+} from "@/application/member/query/get-member-email.query";
 
 @Controller("api/members")
 export class MemberController {
@@ -62,6 +70,16 @@ export class MemberController {
   async getMember(@Param("id") id: string): Promise<GetMemberResult> {
     return this.queryBus.execute<GetMemberQuery, GetMemberResult>(
       new GetMemberQuery(id),
+    );
+  }
+
+  @Public()
+  @Get()
+  async getMemberByEmail(
+    @Query("email") email: string,
+  ): Promise<GetMemberEmailResult> {
+    return this.queryBus.execute<GetMemberEmailQuery, GetMemberEmailResult>(
+      new GetMemberEmailQuery(email),
     );
   }
 
@@ -124,6 +142,28 @@ export class MemberController {
     );
 
     return { id: memberId };
+  }
+
+  @Public()
+  @Post("password-reset")
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    const result: ResetPasswordResult = await this.commandBus.execute<
+      ResetPasswordCommand,
+      ResetPasswordResult
+    >(
+      new ResetPasswordCommand(
+        resetPasswordDto.email,
+        resetPasswordDto.verificationCode,
+      ),
+    );
+
+    return {
+      success: true,
+      memberId: result.memberId,
+      tempPassword: result.temporaryPassword,
+      message:
+        "비밀번호가 재설정되었습니다. 임시 비밀번호로 로그인 후 변경해주세요.",
+    };
   }
 
   @Patch("email")

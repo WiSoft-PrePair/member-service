@@ -1,5 +1,5 @@
 import { CommandHandler, ICommand, ICommandHandler } from "@nestjs/cqrs";
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { MemberReadEntity } from "@/adapter/member/persistence/read";
 import {
   MEMBER_READ_REPOSITORY,
@@ -12,7 +12,10 @@ import {
 } from "@/application/member";
 import { EmailAlreadyExistsException, VerificationCode } from "@/domain/member";
 
-export type EmailVerificationPurpose = "REGISTER" | "CHANGE_EMAIL";
+export type EmailVerificationPurpose =
+  | "REGISTER"
+  | "CHANGE_EMAIL"
+  | "PASSWORD_RESET";
 
 export class SendEmailVerificationCommand implements ICommand {
   constructor(
@@ -35,13 +38,19 @@ export class SendEmailVerificationCommandHandler
   ) {}
 
   async execute(command: SendEmailVerificationCommand): Promise<void> {
-    const { email } = command;
+    const { email, purpose } = command;
 
     const existMember: MemberReadEntity | null =
       await this.memberReadRepository.findByEmail(email);
 
-    if (existMember) {
-      throw new EmailAlreadyExistsException(email);
+    if (purpose === "PASSWORD_RESET") {
+      if (!existMember) {
+        throw new NotFoundException(email);
+      }
+    } else {
+      if (existMember) {
+        throw new EmailAlreadyExistsException(email);
+      }
     }
 
     const code: VerificationCode =
