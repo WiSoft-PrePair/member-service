@@ -40,7 +40,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         url: request.url,
         statusCode: errorResponse.statusCode,
         errorCode: errorResponse.error.code,
-      }
+      },
     );
 
     // FE에게는 기존 형식 그대로 응답

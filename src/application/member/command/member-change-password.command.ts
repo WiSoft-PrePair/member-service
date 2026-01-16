@@ -20,6 +20,7 @@ import {
 } from "@/domain/shared";
 import { EntityManager } from "@mikro-orm/postgresql";
 import { Transactional } from "@mikro-orm/core";
+import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
 
 export class ChangePasswordCommand implements ICommand {
   constructor(
@@ -43,42 +44,66 @@ export class ChangePasswordCommandHandler
     private readonly eventStore: EventStore,
     private readonly eventBus: EventBus,
     private readonly em: EntityManager,
+    @Inject(LOGGER)
+    private readonly logger: ILogger,
   ) {}
 
   @Transactional()
   async execute(command: ChangePasswordCommand): Promise<string> {
-    const existMember: Member | null = await this.memberRepository.findById(
-      command.memberId,
-    );
+    this.logger.log("Password change started", {
+      module: "ChangePasswordCommandHandler",
+      memberId: command.memberId,
+    });
 
-    if (!existMember) {
-      throw new NotFoundException("회원을 찾을 수 없습니다.");
+    try {
+      const existMember: Member | null = await this.memberRepository.findById(
+        command.memberId,
+      );
+
+      if (!existMember) {
+        throw new NotFoundException("회원을 찾을 수 없습니다.");
+      }
+
+      const updateMember: Member = existMember.changePassword(
+        command.currentPassword,
+        command.newPassword,
+        this.passwordEncoder,
+      );
+
+      this.memberRepository.update(updateMember);
+
+      this.eventStore.append(
+        createDomainEvent(updateMember.id, "MemberPasswordChanged", {
+          id: updateMember.id,
+          changedAt: new Date().toISOString(),
+        }),
+      );
+
+      await this.em.flush();
+
+      this.eventBus.publish(
+        new MemberPasswordChangedEvent(
+          updateMember.id,
+          updateMember.password.value,
+        ),
+      );
+
+      this.logger.log("Password change completed", {
+        module: "ChangePasswordCommandHandler",
+        memberId: updateMember.id,
+      });
+
+      return updateMember.id;
+    } catch (error) {
+      this.logger.error(
+        "Password change failed",
+        error instanceof Error ? error : undefined,
+        {
+          module: "ChangePasswordCommandHandler",
+          memberId: command.memberId,
+        },
+      );
+      throw error;
     }
-
-    const updateMember: Member = existMember.changePassword(
-      command.currentPassword,
-      command.newPassword,
-      this.passwordEncoder,
-    );
-
-    this.memberRepository.update(updateMember);
-
-    this.eventStore.append(
-      createDomainEvent(updateMember.id, "MemberPasswordChanged", {
-        id: updateMember.id,
-        changedAt: new Date().toISOString(),
-      }),
-    );
-
-    await this.em.flush();
-
-    this.eventBus.publish(
-      new MemberPasswordChangedEvent(
-        updateMember.id,
-        updateMember.password.value,
-      ),
-    );
-
-    return updateMember.id;
   }
 }

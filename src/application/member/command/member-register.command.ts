@@ -22,6 +22,7 @@ import {
 import { EntityManager, Transactional } from "@mikro-orm/core";
 import { MemberRegisterEvent } from "@/domain/member/events";
 import { EmailVerificationService } from "@/application/member";
+import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
 
 export class MemberRegisterCommand implements ICommand {
   constructor(
@@ -49,58 +50,85 @@ export class MemberRegisterCommandHandler
     private readonly eventBus: EventBus,
     private readonly em: EntityManager,
     private readonly emailVerificationService: EmailVerificationService,
+    @Inject(LOGGER)
+    private readonly logger: ILogger,
   ) {}
 
   @Transactional()
   async execute(command: MemberRegisterCommand): Promise<string> {
-    if (!this.emailVerificationService.isEmailVerified(command.email)) {
-      throw new UnauthorizedException(`이메일 검증을 해주세요.`);
-    }
+    this.logger.log("Member registration started", {
+      module: "MemberRegisterCommandHandler",
+      email: command.email,
+      job: command.job,
+      nickname: command.nickname,
+    });
 
-    this.emailVerificationService.consumeVerifiedEmail(command.email);
+    try {
+      if (!this.emailVerificationService.isEmailVerified(command.email)) {
+        throw new UnauthorizedException(`이메일 검증을 해주세요.`);
+      }
 
-    const member: Member = Member.register(
-      {
-        email: command.email,
-        password: command.password,
-        job: command.job,
-        nickname: command.nickname,
-        notification: command.notification,
-        frequency: command.frequency,
-      },
-      this.passwordEncoder,
-    );
+      this.emailVerificationService.consumeVerifiedEmail(command.email);
 
-    this.memberRepository.register(member);
+      const member: Member = Member.register(
+        {
+          email: command.email,
+          password: command.password,
+          job: command.job,
+          nickname: command.nickname,
+          notification: command.notification,
+          frequency: command.frequency,
+        },
+        this.passwordEncoder,
+      );
 
-    this.eventStore.append(
-      createDomainEvent(member.id, "MemberRegistered", {
-        id: member.id,
+      this.memberRepository.register(member);
+
+      this.eventStore.append(
+        createDomainEvent(member.id, "MemberRegistered", {
+          id: member.id,
+          email: member.email.value,
+          password: member.password.value,
+          job: member.job,
+          nickname: member.nickname,
+          notification: member.notification,
+          frequency: member.frequency,
+          point: member.point,
+          isPro: member.isPro,
+        }),
+      );
+
+      await this.em.flush();
+
+      this.eventBus.publish(
+        new MemberRegisterEvent(
+          member.id,
+          member.email.value,
+          member.password.value,
+          member.job,
+          member.nickname,
+          member.notification,
+          member.frequency,
+        ),
+      );
+
+      this.logger.log("Member registration completed", {
+        module: "MemberRegisterCommandHandler",
+        memberId: member.id,
         email: member.email.value,
-        password: member.password.value,
-        job: member.job,
-        nickname: member.nickname,
-        notification: member.notification,
-        frequency: member.frequency,
-        point: member.point,
-        isPro: member.isPro,
-      }),
-    );
+      });
 
-    await this.em.flush();
-
-    this.eventBus.publish(
-      new MemberRegisterEvent(
-        member.id,
-        member.email.value,
-        member.password.value,
-        member.job,
-        member.nickname,
-        member.notification,
-        member.frequency,
-      ),
-    );
-
-    return member.id;
+      return member.id;
+    } catch (error) {
+      this.logger.error(
+        "Member registration failed",
+        error instanceof Error ? error : undefined,
+        {
+          module: "MemberRegisterCommandHandler",
+          email: command.email,
+        },
+      );
+      throw error;
+    }
   }
 }
