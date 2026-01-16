@@ -11,6 +11,7 @@ import {
   EmailVerificationService,
 } from "@/application/member";
 import { EmailAlreadyExistsException, VerificationCode } from "@/domain/member";
+import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
 
 export type EmailVerificationPurpose =
   | "REGISTER"
@@ -35,27 +36,54 @@ export class SendEmailVerificationCommandHandler
     private readonly emailVerificationService: EmailVerificationService,
     @Inject(EMAIL_SERVICE)
     private readonly emailService: EmailService,
+    @Inject(LOGGER)
+    private readonly logger: ILogger,
   ) {}
 
   async execute(command: SendEmailVerificationCommand): Promise<void> {
     const { email, purpose } = command;
 
-    const existMember: MemberReadEntity | null =
-      await this.memberReadRepository.findByEmail(email);
+    this.logger.log("Email verification send started", {
+      module: "SendEmailVerificationCommandHandler",
+      email,
+      purpose,
+    });
 
-    if (purpose === "PASSWORD_RESET") {
-      if (!existMember) {
-        throw new NotFoundException(email);
+    try {
+      const existMember: MemberReadEntity | null =
+        await this.memberReadRepository.findByEmail(email);
+
+      if (purpose === "PASSWORD_RESET") {
+        if (!existMember) {
+          throw new NotFoundException(email);
+        }
+      } else {
+        if (existMember) {
+          throw new EmailAlreadyExistsException(email);
+        }
       }
-    } else {
-      if (existMember) {
-        throw new EmailAlreadyExistsException(email);
-      }
+
+      const code: VerificationCode =
+        this.emailVerificationService.saveVerificationCode(email);
+
+      await this.emailService.sendVerificationCode(email, code.value);
+
+      this.logger.log("Email verification send completed", {
+        module: "SendEmailVerificationCommandHandler",
+        email,
+        purpose,
+      });
+    } catch (error) {
+      this.logger.error(
+        "Email verification send failed",
+        error instanceof Error ? error : undefined,
+        {
+          module: "SendEmailVerificationCommandHandler",
+          email,
+          purpose,
+        },
+      );
+      throw error;
     }
-
-    const code: VerificationCode =
-      this.emailVerificationService.saveVerificationCode(email);
-
-    await this.emailService.sendVerificationCode(email, code.value);
   }
 }

@@ -18,6 +18,7 @@ import {
 } from "@/domain/member";
 import { LoginRequestDto } from "@/adapter/auth/api/dto";
 import { EntityManager } from "@mikro-orm/postgresql";
+import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
 
 @Injectable()
 export class AuthService {
@@ -29,45 +30,70 @@ export class AuthService {
     @Inject(PASSWORD_ENCODER)
     private readonly passwordEncoder: PasswordEncoder,
     private readonly em: EntityManager,
+    @Inject(LOGGER)
+    private readonly logger: ILogger,
   ) {}
 
   async login(request: LoginRequestDto) {
-    const member: Member | null = await this.memberRepository.findByEmail(
-      request.email,
-    );
+    this.logger.log("Login attempt started", {
+      module: "AuthService",
+      email: request.email,
+    });
 
-    if (!member) {
-      throw new NotFoundException(`존재하지 않는 회원입니다.`);
-    }
-
-    const isValid: boolean = member.password.matches(
-      request.password,
-      this.passwordEncoder,
-    );
-
-    if (!isValid) {
-      throw new UnauthorizedException(
-        `이메일 또는 비밀번호가 일치하지 않습니다`,
+    try {
+      const member: Member | null = await this.memberRepository.findByEmail(
+        request.email,
       );
-    }
 
-    const readEntity: MemberReadEntity | null =
-      await this.memberReadRepository.findByEmail(request.email);
-
-    if (readEntity) {
-      const today: string = new Date().toISOString().slice(0, 10);
-      readEntity.activity = readEntity.activity ?? [];
-
-      if (!readEntity.activity.includes(today)) {
-        readEntity.activity.push(today);
+      if (!member) {
+        throw new NotFoundException(`존재하지 않는 회원입니다.`);
       }
 
-      await this.em.flush();
-    }
+      const isValid: boolean = member.password.matches(
+        request.password,
+        this.passwordEncoder,
+      );
 
-    return {
-      memberId: member.id,
-      email: member.email.value,
-    };
+      if (!isValid) {
+        throw new UnauthorizedException(
+          `이메일 또는 비밀번호가 일치하지 않습니다`,
+        );
+      }
+
+      const readEntity: MemberReadEntity | null =
+        await this.memberReadRepository.findByEmail(request.email);
+
+      if (readEntity) {
+        const today: string = new Date().toISOString().slice(0, 10);
+        readEntity.activity = readEntity.activity ?? [];
+
+        if (!readEntity.activity.includes(today)) {
+          readEntity.activity.push(today);
+        }
+
+        await this.em.flush();
+      }
+
+      this.logger.log("Login successful", {
+        module: "AuthService",
+        memberId: member.id,
+        email: member.email.value,
+      });
+
+      return {
+        memberId: member.id,
+        email: member.email.value,
+      };
+    } catch (error) {
+      this.logger.error(
+        "Login failed",
+        error instanceof Error ? error : undefined,
+        {
+          module: "AuthService",
+          email: request.email,
+        },
+      );
+      throw error;
+    }
   }
 }

@@ -5,6 +5,7 @@ import {
   MEMBER_READ_REPOSITORY,
   type MemberReadRepository,
 } from "@/application/member/ports";
+import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
 
 export class GetMemberResult {
   constructor(
@@ -32,26 +33,50 @@ export class GetMemberHandler
   constructor(
     @Inject(MEMBER_READ_REPOSITORY)
     private readonly memberReadRepository: MemberReadRepository,
+    @Inject(LOGGER)
+    private readonly logger: ILogger,
   ) {}
 
   async execute(query: GetMemberQuery): Promise<GetMemberResult> {
-    const member: MemberReadEntity | null =
-      await this.memberReadRepository.findById(query.memberId);
+    this.logger.debug("Get member query started", {
+      module: "GetMemberHandler",
+      memberId: query.memberId,
+    });
 
-    if (!member) {
-      throw new NotFoundException(`Member not found: ${query.memberId}`);
+    try {
+      const member: MemberReadEntity | null =
+        await this.memberReadRepository.findById(query.memberId);
+
+      if (!member) {
+        throw new NotFoundException(`Member not found: ${query.memberId}`);
+      }
+
+      this.logger.debug("Get member query completed", {
+        module: "GetMemberHandler",
+        memberId: query.memberId,
+      });
+
+      return new GetMemberResult(
+        member.id,
+        member.email,
+        member.job,
+        member.nickname,
+        member.notification,
+        member.frequency,
+        member.point,
+        member.isPro,
+        member.activity,
+      );
+    } catch (error) {
+      this.logger.error(
+        "Get member query failed",
+        error instanceof Error ? error : undefined,
+        {
+          module: "GetMemberHandler",
+          memberId: query.memberId,
+        },
+      );
+      throw error;
     }
-
-    return new GetMemberResult(
-      member.id,
-      member.email,
-      member.job,
-      member.nickname,
-      member.notification,
-      member.frequency,
-      member.point,
-      member.isPro,
-      member.activity,
-    );
   }
 }

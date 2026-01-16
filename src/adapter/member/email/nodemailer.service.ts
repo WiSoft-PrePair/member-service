@@ -1,13 +1,18 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { createTransport, type Transporter } from "nodemailer";
 import { EmailService } from "@/application/member/service/email.service";
+import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
 
 @Injectable()
 export class NodemailerService implements EmailService {
   private transporter: Transporter;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    @Inject(LOGGER)
+    private readonly logger: ILogger,
+  ) {
     this.transporter = createTransport({
       host: this.configService.get("SMTP_HOST", "smtp.gmail.com"),
       port: this.configService.get("SMTP_PORT", 587),
@@ -20,17 +25,23 @@ export class NodemailerService implements EmailService {
   }
 
   async sendVerificationCode(email: string, code: string): Promise<void> {
-    await this.transporter.sendMail({
-      from: this.configService.get("SMTP_FROM", "noreply@prepair.com"),
-      to: email,
-      subject: "[PrePair] 이메일 인증 코드",
-      html: `
+    this.logger.log("Verification email send started", {
+      module: "NodemailerService",
+      email,
+    });
+
+    try {
+      await this.transporter.sendMail({
+        from: this.configService.get("SMTP_FROM", "noreply@prepair.com"),
+        to: email,
+        subject: "[PrePair] 이메일 인증 코드",
+        html: `
         <!-- Email Verification Template (우리 사이트 스타일) -->
 <table width="100%" cellpadding="0" cellspacing="0" style="font-family: 'Noto Sans KR', sans-serif; background-color:#f6f8fa; padding:40px 0;">
   <tr>
     <td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff; border-radius:8px; padding:40px; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
-        
+
         <!-- Header / Logo -->
         <tr>
           <td align="center" style="padding-bottom:20px;">
@@ -82,6 +93,22 @@ export class NodemailerService implements EmailService {
   </tr>
 </table>
       `,
-    });
+      });
+
+      this.logger.log("Verification email sent successfully", {
+        module: "NodemailerService",
+        email,
+      });
+    } catch (error) {
+      this.logger.error(
+        "Verification email send failed",
+        error instanceof Error ? error : undefined,
+        {
+          module: "NodemailerService",
+          email,
+        },
+      );
+      throw error;
+    }
   }
 }

@@ -1,15 +1,16 @@
-import { Module } from "@nestjs/common";
+import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { MemberModule } from "@/adapter/member/member.module";
 import { PersistenceModule } from "@/adapter/member/persistence/persistence.module";
 import { ConfigModule } from "@nestjs/config";
 import { envSchema } from "@/config/env.config";
 import { CqrsModule } from "@nestjs/cqrs";
 import { AuthModule } from "@/adapter/auth/auth.module";
-import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
+import { APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { TransformResponseInterceptor } from "@/adapter/shared/api/interceptors/transform-response.interceptor";
-import { HttpExceptionFilter } from "@/adapter/shared/api/filters/http-exception.filter";
 import { JwtAuthGuard } from "@/adapter/auth/security";
 import { OAuthModule } from "@/adapter/oauth/oauth.module";
+import { LoggerModule } from "@/adapter/shared/logger/logger.module";
+import { CorrelationIdMiddleware } from "@/adapter/shared/middleware/correlation-id.middleware";
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { OAuthModule } from "@/adapter/oauth/oauth.module";
     MemberModule,
     AuthModule,
     OAuthModule,
+    LoggerModule,
   ],
   controllers: [],
   providers: [
@@ -30,13 +32,13 @@ import { OAuthModule } from "@/adapter/oauth/oauth.module";
       useClass: TransformResponseInterceptor,
     },
     {
-      provide: APP_FILTER,
-      useClass: HttpExceptionFilter,
-    },
-    {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(CorrelationIdMiddleware).forRoutes("*");
+  }
+}

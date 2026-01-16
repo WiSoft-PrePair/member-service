@@ -22,6 +22,7 @@ import { EntityManager } from "@mikro-orm/postgresql";
 import { EmailVerificationService } from "@/application/member";
 import { Transactional } from "@mikro-orm/core";
 import { MemberPasswordResetEvent } from "@/domain/member/events/member-password-reset.event";
+import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
 
 export interface ResetPasswordResult {
   memberId: string;
@@ -50,55 +51,79 @@ export class ResetPasswordCommandHandler
     private readonly eventBus: EventBus,
     private readonly em: EntityManager,
     private readonly emailVerificationService: EmailVerificationService,
+    @Inject(LOGGER)
+    private readonly logger: ILogger,
   ) {}
 
   @Transactional()
   async execute(command: ResetPasswordCommand): Promise<ResetPasswordResult> {
-    const isValid: boolean = this.emailVerificationService.verifyCode(
-      command.email,
-      command.verificationCode,
-    );
+    this.logger.log("Password reset started", {
+      module: "ResetPasswordCommandHandler",
+      email: command.email,
+    });
 
-    if (!isValid) {
-      throw new InvalidVerificationCodeException();
+    try {
+      const isValid: boolean = this.emailVerificationService.verifyCode(
+        command.email,
+        command.verificationCode,
+      );
+
+      if (!isValid) {
+        throw new InvalidVerificationCodeException();
+      }
+
+      const existMember: Member | null =
+        await this.memberRepository.findByEmail(command.email);
+
+      if (!existMember) {
+        throw new NotFoundException("Member");
+      }
+
+      const tempPassword: string = this.generateTemporaryPassword();
+
+      const updatedMember: Member = existMember.resetPassword(
+        tempPassword,
+        this.passwordEncoder,
+      );
+
+      this.memberRepository.update(updatedMember);
+
+      this.eventStore.append(
+        createDomainEvent(updatedMember.id, "MemberPasswordReset", {
+          id: updatedMember.id,
+          resetAt: new Date().toISOString(),
+        }),
+      );
+
+      await this.em.flush();
+
+      this.eventBus.publish(
+        new MemberPasswordResetEvent(updatedMember.id, tempPassword),
+      );
+
+      this.emailVerificationService.consumeVerifiedEmail(command.email);
+
+      this.logger.log("Password reset completed", {
+        module: "ResetPasswordCommandHandler",
+        memberId: updatedMember.id,
+        email: command.email,
+      });
+
+      return {
+        memberId: updatedMember.id,
+        temporaryPassword: tempPassword,
+      };
+    } catch (error) {
+      this.logger.error(
+        "Password reset failed",
+        error instanceof Error ? error : undefined,
+        {
+          module: "ResetPasswordCommandHandler",
+          email: command.email,
+        },
+      );
+      throw error;
     }
-
-    const existMember: Member | null = await this.memberRepository.findByEmail(
-      command.email,
-    );
-
-    if (!existMember) {
-      throw new NotFoundException("Member");
-    }
-
-    const tempPassword: string = this.generateTemporaryPassword();
-
-    const updatedMember: Member = existMember.resetPassword(
-      tempPassword,
-      this.passwordEncoder,
-    );
-
-    this.memberRepository.update(updatedMember);
-
-    this.eventStore.append(
-      createDomainEvent(updatedMember.id, "MemberPasswordReset", {
-        id: updatedMember.id,
-        resetAt: new Date().toISOString(),
-      }),
-    );
-
-    await this.em.flush();
-
-    this.eventBus.publish(
-      new MemberPasswordResetEvent(updatedMember.id, tempPassword),
-    );
-
-    this.emailVerificationService.consumeVerifiedEmail(command.email);
-
-    return {
-      memberId: updatedMember.id,
-      temporaryPassword: tempPassword,
-    };
   }
 
   private generateTemporaryPassword() {

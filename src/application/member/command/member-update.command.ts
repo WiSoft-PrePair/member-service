@@ -19,6 +19,7 @@ import {
   type EventStore,
 } from "@/domain/shared";
 import { EntityManager, Transactional } from "@mikro-orm/core";
+import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
 
 export class MemberUpdateCommand implements ICommand {
   constructor(
@@ -42,57 +43,82 @@ export class MemberUpdateCommandHandler
     private readonly eventStore: EventStore,
     private readonly eventBus: EventBus,
     private readonly em: EntityManager,
+    @Inject(LOGGER)
+    private readonly logger: ILogger,
   ) {}
 
   @Transactional()
   async execute(command: MemberUpdateCommand): Promise<string> {
-    const existingMember: Member | null = await this.memberRepository.findById(
-      command.id,
-    );
-
-    if (!existingMember) {
-      throw new NotFoundException("회원을 찾을 수 없습니다.");
-    }
-
-    const updatedMember: Member = existingMember.update({
-      job: command.job ?? existingMember.job,
-      nickname: command.nickname ?? existingMember.nickname,
-      notification: command.notification ?? existingMember.notification,
-      frequency: command.frequency ?? existingMember.frequency,
+    this.logger.log("Member update started", {
+      module: "MemberUpdateCommandHandler",
+      memberId: command.id,
+      job: command.job,
+      nickname: command.nickname,
     });
 
-    this.memberRepository.update(updatedMember);
+    try {
+      const existingMember: Member | null =
+        await this.memberRepository.findById(command.id);
 
-    this.eventStore.append(
-      createDomainEvent(updatedMember.id, "MemberUpdated", {
-        id: updatedMember.id,
-        email: updatedMember.email.value,
-        password: updatedMember.password.value,
-        job: updatedMember.job,
-        nickname: updatedMember.nickname,
-        notification: updatedMember.notification,
-        frequency: updatedMember.frequency,
-        point: updatedMember.point,
-        isPro: updatedMember.isPro,
-      }),
-    );
+      if (!existingMember) {
+        throw new NotFoundException("회원을 찾을 수 없습니다.");
+      }
 
-    await this.em.flush();
+      const updatedMember: Member = existingMember.update({
+        job: command.job ?? existingMember.job,
+        nickname: command.nickname ?? existingMember.nickname,
+        notification: command.notification ?? existingMember.notification,
+        frequency: command.frequency ?? existingMember.frequency,
+      });
 
-    this.eventBus.publish(
-      new MemberUpdateEvent(
-        updatedMember.id,
-        updatedMember.email.value,
-        updatedMember.password.value,
-        updatedMember.job,
-        updatedMember.nickname,
-        updatedMember.notification,
-        updatedMember.frequency,
-        updatedMember.point,
-        updatedMember.isPro,
-      ),
-    );
+      this.memberRepository.update(updatedMember);
 
-    return updatedMember.id;
+      this.eventStore.append(
+        createDomainEvent(updatedMember.id, "MemberUpdated", {
+          id: updatedMember.id,
+          email: updatedMember.email.value,
+          password: updatedMember.password.value,
+          job: updatedMember.job,
+          nickname: updatedMember.nickname,
+          notification: updatedMember.notification,
+          frequency: updatedMember.frequency,
+          point: updatedMember.point,
+          isPro: updatedMember.isPro,
+        }),
+      );
+
+      await this.em.flush();
+
+      this.eventBus.publish(
+        new MemberUpdateEvent(
+          updatedMember.id,
+          updatedMember.email.value,
+          updatedMember.password.value,
+          updatedMember.job,
+          updatedMember.nickname,
+          updatedMember.notification,
+          updatedMember.frequency,
+          updatedMember.point,
+          updatedMember.isPro,
+        ),
+      );
+
+      this.logger.log("Member update completed", {
+        module: "MemberUpdateCommandHandler",
+        memberId: updatedMember.id,
+      });
+
+      return updatedMember.id;
+    } catch (error) {
+      this.logger.error(
+        "Member update failed",
+        error instanceof Error ? error : undefined,
+        {
+          module: "MemberUpdateCommandHandler",
+          memberId: command.id,
+        },
+      );
+      throw error;
+    }
   }
 }
