@@ -4,11 +4,13 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Inject,
 } from "@nestjs/common";
-import { Response } from "express";
+import { type Request, type Response } from "express";
 import { DomainException } from "@/domain/shared/exception/domain.exception";
 import { ErrorResponse } from "@/adapter/shared/api/types/api-response.type";
 import { HttpExceptionWithCode } from "@/adapter/shared/api/exceptions/http.exception";
+import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
 
 interface HttpExceptionResponse {
   message: string | string[];
@@ -18,12 +20,30 @@ interface HttpExceptionResponse {
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
+  constructor(@Inject(LOGGER) private readonly logger: ILogger) {}
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
 
     const errorResponse = this.buildErrorResponse(exception);
 
+    // 구조화된 로그 기록
+    this.logger.error(
+      `HTTP ${errorResponse.statusCode} - ${request.method} ${request.url}`,
+      exception instanceof Error ? exception : undefined,
+      {
+        module: "HttpExceptionFilter",
+        correlationId: request.correlationId,
+        method: request.method,
+        url: request.url,
+        statusCode: errorResponse.statusCode,
+        errorCode: errorResponse.error.code,
+      }
+    );
+
+    // FE에게는 기존 형식 그대로 응답
     response.status(errorResponse.statusCode).json(errorResponse);
   }
 
@@ -90,7 +110,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
 
     // 4. 알 수 없는 예외 -> Internal Server Error
-    console.error("Unhandled exception:", exception);
     return {
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
       error: {
