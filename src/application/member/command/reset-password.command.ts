@@ -38,9 +38,7 @@ export class ResetPasswordCommand implements ICommand {
 
 @Injectable()
 @CommandHandler(ResetPasswordCommand)
-export class ResetPasswordCommandHandler
-  implements ICommandHandler<ResetPasswordCommand>
-{
+export class ResetPasswordCommandHandler implements ICommandHandler<ResetPasswordCommand> {
   constructor(
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepository: MemberRepository,
@@ -62,68 +60,56 @@ export class ResetPasswordCommandHandler
       email: command.email,
     });
 
-    try {
-      const isValid: boolean = this.emailVerificationService.verifyCode(
-        command.email,
-        command.verificationCode,
-      );
+    const isValid: boolean = this.emailVerificationService.verifyCode(
+      command.email,
+      command.verificationCode,
+    );
 
-      if (!isValid) {
-        throw new InvalidVerificationCodeException();
-      }
-
-      const existMember: Member | null =
-        await this.memberRepository.findByEmail(command.email);
-
-      if (!existMember) {
-        throw new NotFoundException("Member");
-      }
-
-      const tempPassword: string = this.generateTemporaryPassword();
-
-      const updatedMember: Member = existMember.resetPassword(
-        tempPassword,
-        this.passwordEncoder,
-      );
-
-      this.memberRepository.update(updatedMember);
-
-      this.eventStore.append(
-        createDomainEvent(updatedMember.id, "MemberPasswordReset", {
-          id: updatedMember.id,
-          resetAt: new Date().toISOString(),
-        }),
-      );
-
-      await this.em.flush();
-
-      this.eventBus.publish(
-        new MemberPasswordResetEvent(updatedMember.id, tempPassword),
-      );
-
-      this.emailVerificationService.consumeVerifiedEmail(command.email);
-
-      this.logger.log("Password reset completed", {
-        module: "ResetPasswordCommandHandler",
-        memberId: updatedMember.id,
-        email: command.email,
-      });
-
-      return {
-        memberId: updatedMember.id,
-        temporaryPassword: tempPassword,
-      };
-    } catch (error) {
-      this.logger.error(
-        "Password reset failed",
-        error instanceof Error ? error : undefined,
-        {
-          module: "ResetPasswordCommandHandler",
-          email: command.email,
-        },
-      );
-      throw error;
+    if (!isValid) {
+      throw new InvalidVerificationCodeException();
     }
+
+    const existMember: Member | null = await this.memberRepository.findByEmail(
+      command.email,
+    );
+
+    if (!existMember) {
+      throw new NotFoundException("Member");
+    }
+
+    const tempPassword: string = this.generateTemporaryPassword();
+
+    const updatedMember: Member = existMember.resetPassword(
+      tempPassword,
+      this.passwordEncoder,
+    );
+
+    this.memberRepository.update(updatedMember);
+
+    for (const event of updatedMember.getDomainEvents()) {
+      this.eventStore.append(event);
+    }
+
+    await this.em.flush();
+
+    this.eventBus.publish(
+      new MemberPasswordResetEvent(updatedMember.id, tempPassword),
+    );
+
+    this.emailVerificationService.consumeVerifiedEmail(command.email);
+
+    this.logger.log("Password reset completed", {
+      module: "ResetPasswordCommandHandler",
+      memberId: updatedMember.id,
+      email: command.email,
+    });
+
+    updatedMember.clearDomainEvents();
+
+    return {
+      memberId: updatedMember.id,
+      temporaryPassword: tempPassword,
+    };
   }
 
   private generateTemporaryPassword() {

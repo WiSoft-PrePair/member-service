@@ -14,11 +14,7 @@ import {
   type PasswordEncoder,
 } from "@/domain/member";
 import { Inject, Injectable, UnauthorizedException } from "@nestjs/common";
-import {
-  createDomainEvent,
-  EVENT_STORE,
-  type EventStore,
-} from "@/domain/shared";
+import { EVENT_STORE, type EventStore } from "@/domain/shared";
 import { EntityManager, Transactional } from "@mikro-orm/core";
 import { MemberRegisterEvent } from "@/domain/member/events";
 import { EmailVerificationService } from "@/application/member";
@@ -37,9 +33,10 @@ export class MemberRegisterCommand implements ICommand {
 
 @Injectable()
 @CommandHandler(MemberRegisterCommand)
-export class MemberRegisterCommandHandler
-  implements ICommandHandler<MemberRegisterCommand, string>
-{
+export class MemberRegisterCommandHandler implements ICommandHandler<
+  MemberRegisterCommand,
+  string
+> {
   constructor(
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepository: MemberRepository,
@@ -63,72 +60,52 @@ export class MemberRegisterCommandHandler
       nickname: command.nickname,
     });
 
-    try {
-      if (!this.emailVerificationService.isEmailVerified(command.email)) {
-        throw new UnauthorizedException(`이메일 검증을 해주세요.`);
-      }
-
-      this.emailVerificationService.consumeVerifiedEmail(command.email);
-
-      const member: Member = Member.register(
-        {
-          email: command.email,
-          password: command.password,
-          job: command.job,
-          nickname: command.nickname,
-          notification: command.notification,
-          frequency: command.frequency,
-        },
-        this.passwordEncoder,
-      );
-
-      this.memberRepository.register(member);
-
-      this.eventStore.append(
-        createDomainEvent(member.id, "MemberRegistered", {
-          id: member.id,
-          email: member.email.value,
-          password: member.password.value,
-          job: member.job,
-          nickname: member.nickname,
-          notification: member.notification,
-          frequency: member.frequency,
-          point: member.point,
-          isPro: member.isPro,
-        }),
-      );
-
-      await this.em.flush();
-
-      this.eventBus.publish(
-        new MemberRegisterEvent(
-          member.id,
-          member.email.value,
-          member.password.value,
-          member.job,
-          member.nickname,
-          member.notification,
-          member.frequency,
-        ),
-      );
-
-      this.logger.log("Member registration completed", {
-        module: "MemberRegisterCommandHandler",
-        memberId: member.id,
-        email: member.email.value,
-      });
-
-      return member.id;
-    } catch (error) {
-      this.logger.error(
-        "Member registration failed",
-        error instanceof Error ? error : undefined,
-        {
-          module: "MemberRegisterCommandHandler",
-          email: command.email,
-        },
-      );
-      throw error;
+    if (!this.emailVerificationService.isEmailVerified(command.email)) {
+      throw new UnauthorizedException(`이메일 검증을 해주세요.`);
     }
+
+    this.emailVerificationService.consumeVerifiedEmail(command.email);
+
+    const member: Member = Member.register(
+      {
+        email: command.email,
+        password: command.password,
+        job: command.job,
+        nickname: command.nickname,
+        notification: command.notification,
+        frequency: command.frequency,
+      },
+      this.passwordEncoder,
+    );
+
+    this.memberRepository.register(member);
+
+    for (const event of member.getDomainEvents()) {
+      this.eventStore.append(event);
+    }
+
+    await this.em.flush();
+
+    this.eventBus.publish(
+      new MemberRegisterEvent(
+        member.id,
+        member.email.value,
+        member.password.value,
+        member.job,
+        member.nickname,
+        member.notification,
+        member.frequency,
+      ),
+    );
+
+    this.logger.log("Member registration completed", {
+      module: "MemberRegisterCommandHandler",
+      memberId: member.id,
+      email: member.email.value,
+    });
+
+    member.clearDomainEvents();
+
+    return member.id;
   }
 }

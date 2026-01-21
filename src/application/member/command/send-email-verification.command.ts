@@ -27,9 +27,10 @@ export class SendEmailVerificationCommand implements ICommand {
 
 @Injectable()
 @CommandHandler(SendEmailVerificationCommand)
-export class SendEmailVerificationCommandHandler
-  implements ICommandHandler<SendEmailVerificationCommand, void>
-{
+export class SendEmailVerificationCommandHandler implements ICommandHandler<
+  SendEmailVerificationCommand,
+  void
+> {
   constructor(
     @Inject(MEMBER_READ_REPOSITORY)
     private readonly memberReadRepository: MemberReadRepository,
@@ -49,41 +50,28 @@ export class SendEmailVerificationCommandHandler
       purpose,
     });
 
-    try {
-      const existMember: MemberReadEntity | null =
-        await this.memberReadRepository.findByEmail(email);
+    const existMember: MemberReadEntity | null =
+      await this.memberReadRepository.findByEmail(email);
 
-      if (purpose === "PASSWORD_RESET") {
-        if (!existMember) {
-          throw new NotFoundException(email);
-        }
-      } else {
-        if (existMember) {
-          throw new EmailAlreadyExistsException(email);
-        }
+    if (purpose === "PASSWORD_RESET") {
+      if (!existMember) {
+        throw new NotFoundException(email);
       }
-
-      const code: VerificationCode =
-        this.emailVerificationService.saveVerificationCode(email);
-
-      await this.emailService.sendVerificationCode(email, code.value);
-
-      this.logger.log("Email verification send completed", {
-        module: "SendEmailVerificationCommandHandler",
-        email,
-        purpose,
-      });
-    } catch (error) {
-      this.logger.error(
-        "Email verification send failed",
-        error instanceof Error ? error : undefined,
-        {
-          module: "SendEmailVerificationCommandHandler",
-          email,
-          purpose,
-        },
-      );
-      throw error;
+    } else {
+      if (existMember) {
+        throw new EmailAlreadyExistsException(email);
+      }
     }
+
+    const code: VerificationCode =
+      this.emailVerificationService.saveVerificationCode(email);
+
+    await this.emailService.sendVerificationCode(email, code.value);
+
+    this.logger.log("Email verification send completed", {
+      module: "SendEmailVerificationCommandHandler",
+      email,
+      purpose,
+    });
   }
 }

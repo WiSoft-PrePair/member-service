@@ -33,9 +33,10 @@ export class MemberUpdateCommand implements ICommand {
 
 @Injectable()
 @CommandHandler(MemberUpdateCommand)
-export class MemberUpdateCommandHandler
-  implements ICommandHandler<MemberUpdateCommand, string>
-{
+export class MemberUpdateCommandHandler implements ICommandHandler<
+  MemberUpdateCommand,
+  string
+> {
   constructor(
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepository: MemberRepository,
@@ -56,69 +57,50 @@ export class MemberUpdateCommandHandler
       nickname: command.nickname,
     });
 
-    try {
-      const existingMember: Member | null =
-        await this.memberRepository.findById(command.id);
+    const existingMember: Member | null = await this.memberRepository.findById(
+      command.id,
+    );
 
-      if (!existingMember) {
-        throw new NotFoundException("회원을 찾을 수 없습니다.");
-      }
-
-      const updatedMember: Member = existingMember.update({
-        job: command.job ?? existingMember.job,
-        nickname: command.nickname ?? existingMember.nickname,
-        notification: command.notification ?? existingMember.notification,
-        frequency: command.frequency ?? existingMember.frequency,
-      });
-
-      this.memberRepository.update(updatedMember);
-
-      this.eventStore.append(
-        createDomainEvent(updatedMember.id, "MemberUpdated", {
-          id: updatedMember.id,
-          email: updatedMember.email.value,
-          password: updatedMember.password.value,
-          job: updatedMember.job,
-          nickname: updatedMember.nickname,
-          notification: updatedMember.notification,
-          frequency: updatedMember.frequency,
-          point: updatedMember.point,
-          isPro: updatedMember.isPro,
-        }),
-      );
-
-      await this.em.flush();
-
-      this.eventBus.publish(
-        new MemberUpdateEvent(
-          updatedMember.id,
-          updatedMember.email.value,
-          updatedMember.password.value,
-          updatedMember.job,
-          updatedMember.nickname,
-          updatedMember.notification,
-          updatedMember.frequency,
-          updatedMember.point,
-          updatedMember.isPro,
-        ),
-      );
-
-      this.logger.log("Member update completed", {
-        module: "MemberUpdateCommandHandler",
-        memberId: updatedMember.id,
-      });
-
-      return updatedMember.id;
-    } catch (error) {
-      this.logger.error(
-        "Member update failed",
-        error instanceof Error ? error : undefined,
-        {
-          module: "MemberUpdateCommandHandler",
-          memberId: command.id,
-        },
-      );
-      throw error;
+    if (!existingMember) {
+      throw new NotFoundException("회원을 찾을 수 없습니다.");
     }
+
+    const updatedMember: Member = existingMember.update({
+      job: command.job ?? existingMember.job,
+      nickname: command.nickname ?? existingMember.nickname,
+      notification: command.notification ?? existingMember.notification,
+      frequency: command.frequency ?? existingMember.frequency,
+    });
+
+    this.memberRepository.update(updatedMember);
+
+    for (const event of updatedMember.getDomainEvents()) {
+      this.eventStore.append(event);
+    }
+
+    await this.em.flush();
+
+    this.eventBus.publish(
+      new MemberUpdateEvent(
+        updatedMember.id,
+        updatedMember.email.value,
+        updatedMember.password.value,
+        updatedMember.job,
+        updatedMember.nickname,
+        updatedMember.notification,
+        updatedMember.frequency,
+        updatedMember.point,
+        updatedMember.isPro,
+      ),
+    );
+
+    this.logger.log("Member update completed", {
+      module: "MemberUpdateCommandHandler",
+      memberId: updatedMember.id,
+    });
+
+    updatedMember.clearDomainEvents();
+
+    return updatedMember.id;
   }
 }
