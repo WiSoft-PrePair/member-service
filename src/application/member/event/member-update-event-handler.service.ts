@@ -4,14 +4,18 @@ import { MemberUpdateEvent } from "@/domain/member";
 import { MemberReadEntity } from "@/adapter/member/persistence/read";
 import { EntityManager } from "@mikro-orm/postgresql";
 import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
+import {
+  MEMBER_READ_REPOSITORY,
+  MemberReadDto,
+  type MemberReadRepository,
+} from "@/application/member/ports";
 
 @Injectable()
 @EventsHandler(MemberUpdateEvent)
-export class MemberUpdateEventHandler
-  implements IEventHandler<MemberUpdateEvent>
-{
+export class MemberUpdateEventHandler implements IEventHandler<MemberUpdateEvent> {
   constructor(
-    private readonly em: EntityManager,
+    @Inject(MEMBER_READ_REPOSITORY)
+    private readonly memberReadRepository: MemberReadRepository,
     @Inject(LOGGER)
     private readonly logger: ILogger,
   ) {}
@@ -22,49 +26,36 @@ export class MemberUpdateEventHandler
       memberId: event.memberId,
     });
 
-    try {
-      const em: EntityManager = this.em.fork();
+    const entity: MemberReadDto | null =
+      await this.memberReadRepository.findById(event.memberId);
 
-      const entity: MemberReadEntity | null = await em.findOne(
-        MemberReadEntity,
-        {
-          id: event.memberId,
-        },
-      );
-
-      if (!entity) {
-        this.logger.warn("Member read entity not found", {
-          module: "MemberUpdateEventHandler",
-          memberId: event.memberId,
-        });
-        return;
-      }
-
-      entity.email = event.email;
-      entity.job = event.job;
-      entity.nickname = event.nickname;
-      entity.notification = event.notification;
-      entity.frequency = event.frequency;
-      entity.point = event.point;
-      entity.isPro = event.isPro;
-      entity.updatedAt = event.occurredAt;
-
-      await em.flush();
-
-      this.logger.log("Member update event handling completed", {
+    if (!entity) {
+      this.logger.warn("Member read entity not found", {
         module: "MemberUpdateEventHandler",
         memberId: event.memberId,
       });
-    } catch (error) {
-      this.logger.error(
-        "Member update event handling failed",
-        error instanceof Error ? error : undefined,
-        {
-          module: "MemberUpdateEventHandler",
-          memberId: event.memberId,
-        },
-      );
-      throw error;
+      return;
     }
+
+    const updatedDto = new MemberReadDto({
+      id: entity.id,
+      email: event.email,
+      job: event.job,
+      nickname: event.nickname,
+      notification: event.notification,
+      frequency: event.frequency,
+      point: event.point,
+      isPro: event.isPro,
+      createdAt: entity.createdAt,
+      updatedAt: event.occurredAt,
+      activity: entity.activity,
+    });
+
+    this.memberReadRepository.save(updatedDto);
+
+    this.logger.log("Member update event handling completed", {
+      module: "MemberUpdateEventHandler",
+      memberId: event.memberId,
+    });
   }
 }

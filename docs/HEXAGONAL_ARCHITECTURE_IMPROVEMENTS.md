@@ -1,10 +1,11 @@
-# 헥사고날 아키텍처 & DDD 패턴 개선 사항
+# 헥사고날 아키텍처 개선 사항
 
-> **종합 준수도 분석**
-> - 헥사고날 아키텍처 준수도: **70/100**
-> - DDD 패턴 준수도: **75/100**
+> **헥사고날 아키텍처 준수도: 70/100**
 >
-> 이 문서는 실제 코드 분석을 통해 발견된 헥사고날 아키텍처 및 DDD 패턴 위반 사항과 개선 방법을 정리합니다.
+> 이 문서는 실제 코드 분석을 통해 발견된 헥사고날 아키텍처 위반 사항과 개선 방법을 정리합니다.
+>
+> **분석 기준일:** 2026-01-21
+> **분석 도구:** DDD Pattern Reviewer, Hexagonal Architecture Auditor, Gemini Code Analysis
 
 ---
 
@@ -16,7 +17,7 @@
 - ✅ Domain 계층이 인프라스트럭처로부터 완전히 격리됨 (MikroORM, NestJS 의존성 없음)
 - ✅ Symbol 기반 의존성 역전 원칙(DIP) 체계적 구현
 - ✅ Mapper 패턴을 통한 Domain ↔ Persistence 명확한 분리
-- ✅ CQRS 패턴과 헥사고날 아키텍처의 우수한 조화
+- ✅ CQRS Read/Write Model 분리 우수
 
 **DDD 패턴:**
 - ✅ Value Objects(Email, Password) 검증 로직 캡슐화 우수
@@ -26,364 +27,48 @@
 
 ### 치명적 위반 사항
 
-**헥사고날 아키텍처 (Critical):**
+**헥사고날 아키텍처 위반 (Critical):**
+
 1. ❌ **Application → Adapter 역방향 의존성** (28개 파일)
-   - Port 인터페이스가 Adapter Entity 타입 노출
-   - Application Service가 Adapter 구체 타입 직접 의존
-   - EventHandler가 EntityManager 직접 사용
+   - Port 인터페이스가 Adapter Entity 타입 노출 (`MemberReadEntity`, `RefreshTokenEntity`)
+   - Application Service가 Adapter 구체 타입 직접 의존 (`KakaoOauthService`, `JwtService`)
+   - EventHandler가 `EntityManager` 직접 사용
 
-2. ❌ **Port/Adapter 패턴 위반** (3개 주요 Port)
-   - MemberReadRepository → MemberReadEntity 노출
-   - RefreshTokenRepository → RefreshTokenEntity 노출
-   - OAuth/JWT Service Port 없이 직접 의존
+2. ❌ **Logger Port가 Adapter에 위치** (28개 파일 영향)
+   - `@/adapter/shared/logger/logger.inferface`를 Application에서 import
 
-**DDD 패턴 (Critical):**
-3. ❌ **Aggregate가 도메인 이벤트를 생성하지 않음** (모든 Aggregate)
-   - Member.changePassword() 등 상태 변경 메서드가 이벤트 미발생
-   - CommandHandler에서 수동으로 이벤트 생성 (비즈니스 로직 분산)
+**DDD 패턴 위반 (Critical):**
 
-4. ❌ **Aggregate 경계 위반 - Read Model 직접 수정** (2개 파일)
+3. ❌ **Aggregate 경계 위반 - Read Model 직접 수정** (2개 파일)
    - `AuthService.login()` (line 63-74)에서 MemberReadEntity.activity 직접 수정
    - `KakaoAuthService.handleCallback()` (line 249-260)에서 동일
    - CQRS 원칙 위반 (Read Model은 EventHandler를 통해서만 업데이트)
 
 **기타 중요 위반 (Major):**
-5. ❌ **Repository 인터페이스 일관성 문제**
-   - register()/update()가 Member 반환 (void여야 함)
-   - withdraw()만 동기 메서드 (비일관성)
 
-6. ❌ **Logger Port가 Adapter에 위치** (28개 파일 영향)
-   - `@/adapter/shared/logger/logger.inferface`를 Application에서 import
+4. ❌ **Repository 인터페이스 일관성 문제**
+   - `register()/update()`가 Member 반환 (void여야 함)
+   - `withdraw()`만 동기 메서드 (비일관성)
+
+5. ❌ **Value Object 불변성 문제**
+   - `VerificationCode.expiresAt`이 mutable Date 객체 직접 반환
 
 ---
 
 ## 🎯 개선 우선순위
 
-## Phase 1: Critical - DDD Aggregate 이벤트 패턴 수정
+## Phase 1: Critical - CQRS Aggregate 경계 위반 수정
 
-**우선순위: 최우선** (모든 리팩토링의 기반)
-
-### 배경
-현재 Aggregate(Member, OAuthConnection)가 상태 변경 시 도메인 이벤트를 직접 생성하지 않아, 비즈니스 로직이 Application 계층과 Domain 계층에 분산되어 있습니다. 이는 DDD의 핵심 원칙인 "Aggregate가 자신의 불변식과 이벤트를 관리한다"를 위배합니다.
-
-### 1.1 Aggregate에 도메인 이벤트 수집 메커니즘 추가
-
-**수정 대상: `/Users/moon/Developments/project/prepair/backend-ts/src/domain/member/member.ts`**
-
-**현재 문제:**
-```typescript
-// ❌ src/domain/member/member.ts
-export class Member {
-  public changePassword(
-    currentPassword: string,
-    newPassword: string,
-    encoder: PasswordEncoder,
-  ): Member {
-    if (!this.password.matches(currentPassword, encoder)) {
-      throw new InvalidPasswordException();
-    }
-    const password: Password = Password.create(newPassword, encoder);
-    return new Member({ ...this, password });
-    // ❌ 이벤트가 발생하지 않음
-  }
-
-  public withdraw(): Member {
-    return new Member({ ...this, isPro: false });
-    // ❌ 이벤트가 발생하지 않음
-  }
-}
-```
-
-**CommandHandler에서 수동으로 이벤트 생성 (잘못된 패턴):**
-```typescript
-// ❌ src/application/member/command/change-password.command.ts
-@CommandHandler(ChangePasswordCommand)
-export class ChangePasswordCommandHandler {
-  async execute(command: ChangePasswordCommand): Promise<void> {
-    const member = await this.memberRepository.findById(command.memberId);
-    const updatedMember = member.changePassword(/* ... */);
-    this.memberRepository.update(updatedMember);
-
-    // ❌ Application 계층에서 수동으로 이벤트 생성 (비즈니스 로직 누수)
-    this.eventStore.append(
-      createDomainEvent(member.id, "MemberPasswordChanged", {
-        memberId: member.id,
-        changedAt: new Date(),
-      }),
-    );
-
-    await this.em.flush();
-    this.eventBus.publish(new MemberPasswordChangedEvent(member.id, /* ... */));
-  }
-}
-```
-
-**개선 방법:**
-
-**Step 1: Domain Event 기본 인터페이스 정의**
-
-`/Users/moon/Developments/project/prepair/backend-ts/src/domain/shared/domain-event.ts`
-```typescript
-// 기존에 있다면 확장, 없다면 새로 생성
-export interface IDomainEvent {
-  readonly aggregateId: string;
-  readonly eventType: string;
-  readonly occurredAt: Date;
-}
-
-export class DomainEvent<T = any> implements IDomainEvent {
-  constructor(
-    public readonly aggregateId: string,
-    public readonly eventType: string,
-    public readonly eventData: T,
-    public readonly occurredAt: Date = new Date(),
-  ) {}
-}
-
-export function createDomainEvent<T>(
-  aggregateId: string,
-  eventType: string,
-  eventData: T,
-): DomainEvent<T> {
-  return new DomainEvent(aggregateId, eventType, eventData);
-}
-```
-
-**Step 2: Member Aggregate 수정**
-
-`/Users/moon/Developments/project/prepair/backend-ts/src/domain/member/member.ts`
-```typescript
-import { DomainEvent, createDomainEvent } from "@/domain/shared/domain-event";
-
-export class Member {
-  readonly id: string;
-  readonly email: Email;
-  readonly password: Password;
-  readonly job: string;
-  readonly nickname: string;
-  readonly notification: NotificationEnum;
-  readonly frequency: FrequencyEnum;
-  readonly point: number;
-  readonly isPro: boolean;
-
-  // ✅ 도메인 이벤트 수집을 위한 내부 배열
-  private readonly _domainEvents: DomainEvent[] = [];
-
-  private constructor(member: MemberType) {
-    Object.assign(this, member);
-  }
-
-  // ✅ Factory Method - 이벤트 발생
-  public static register(
-    registerRequest: RegisterMemberRequest,
-    encoder: PasswordEncoder,
-  ): Member {
-    const member = new Member({
-      ...registerRequest,
-      id: randomUUID(),
-      email: new Email(registerRequest.email),
-      password: Password.create(registerRequest.password, encoder),
-      point: 0,
-      isPro: false,
-    });
-
-    // ✅ Aggregate 내부에서 이벤트 생성
-    member._domainEvents.push(
-      createDomainEvent(member.id, "MemberRegistered", {
-        memberId: member.id,
-        email: member.email.value,
-        password: member.password.value,
-        job: member.job,
-        nickname: member.nickname,
-        notification: member.notification,
-        frequency: member.frequency,
-        occurredAt: new Date(),
-      }),
-    );
-
-    return member;
-  }
-
-  // ✅ 비밀번호 변경 - 이벤트 발생
-  public changePassword(
-    currentPassword: string,
-    newPassword: string,
-    encoder: PasswordEncoder,
-  ): Member {
-    if (!this.password.matches(currentPassword, encoder)) {
-      throw new InvalidPasswordException();
-    }
-
-    const password: Password = Password.create(newPassword, encoder);
-    const updatedMember = new Member({ ...this, password });
-
-    // ✅ Aggregate 내부에서 이벤트 생성
-    updatedMember._domainEvents.push(
-      createDomainEvent(this.id, "MemberPasswordChanged", {
-        memberId: this.id,
-        changedAt: new Date(),
-      }),
-    );
-
-    return updatedMember;
-  }
-
-  // ✅ 회원 탈퇴 - 이벤트 발생
-  public withdraw(): Member {
-    const updatedMember = new Member({ ...this, isPro: false });
-
-    updatedMember._domainEvents.push(
-      createDomainEvent(this.id, "MemberWithdrawn", {
-        memberId: this.id,
-        withdrawnAt: new Date(),
-      }),
-    );
-
-    return updatedMember;
-  }
-
-  // ✅ 회원 정보 업데이트 - 이벤트 발생
-  public update(request: UpdateMemberRequest): Member {
-    const updatedMember = new Member({
-      ...this,
-      job: request.job,
-      nickname: request.nickname,
-      notification: request.notification,
-      frequency: request.frequency,
-    });
-
-    updatedMember._domainEvents.push(
-      createDomainEvent(this.id, "MemberUpdated", {
-        memberId: this.id,
-        job: request.job,
-        nickname: request.nickname,
-        notification: request.notification,
-        frequency: request.frequency,
-        updatedAt: new Date(),
-      }),
-    );
-
-    return updatedMember;
-  }
-
-  // ✅ 이메일 변경 - 이벤트 발생
-  public changeEmail(newEmail: string): Member {
-    const email = new Email(newEmail);
-    const updatedMember = new Member({ ...this, email });
-
-    updatedMember._domainEvents.push(
-      createDomainEvent(this.id, "MemberEmailChanged", {
-        memberId: this.id,
-        oldEmail: this.email.value,
-        newEmail: email.value,
-        changedAt: new Date(),
-      }),
-    );
-
-    return updatedMember;
-  }
-
-  // ✅ 비밀번호 재설정 - 이벤트 발생
-  public resetPassword(newPassword: string, encoder: PasswordEncoder): Member {
-    const password: Password = Password.create(newPassword, encoder);
-    const updatedMember = new Member({ ...this, password });
-
-    updatedMember._domainEvents.push(
-      createDomainEvent(this.id, "MemberPasswordReset", {
-        memberId: this.id,
-        resetAt: new Date(),
-      }),
-    );
-
-    return updatedMember;
-  }
-
-  // ✅ 도메인 이벤트 접근자
-  public getDomainEvents(): ReadonlyArray<DomainEvent> {
-    return [...this._domainEvents];
-  }
-
-  public clearDomainEvents(): void {
-    this._domainEvents.length = 0;
-  }
-
-  // ✅ 재구성용 팩토리 (DB에서 로드 시, 이벤트 발생 안 함)
-  public static of(member: MemberType): Member {
-    return new Member(member);
-  }
-}
-```
-
-**Step 3: CommandHandler 간소화**
-
-`/Users/moon/Developments/project/prepair/backend-ts/src/application/member/command/change-password.command.ts`
-```typescript
-@CommandHandler(ChangePasswordCommand)
-export class ChangePasswordCommandHandler {
-  @Transactional()
-  async execute(command: ChangePasswordCommand): Promise<void> {
-    const member = await this.memberRepository.findById(command.memberId);
-
-    if (!member) {
-      throw new NotFoundException("존재하지 않는 회원입니다.");
-    }
-
-    // ✅ Aggregate 메서드 호출 (내부에서 이벤트 생성)
-    const updatedMember = member.changePassword(
-      command.currentPassword,
-      command.newPassword,
-      this.passwordEncoder,
-    );
-
-    this.memberRepository.update(updatedMember);
-
-    // ✅ Aggregate가 생성한 이벤트를 수집하여 저장
-    for (const event of updatedMember.getDomainEvents()) {
-      this.eventStore.append(event);
-    }
-
-    await this.em.flush();
-
-    // ✅ Integration Event 발행 (NestJS EventBus용)
-    for (const event of updatedMember.getDomainEvents()) {
-      this.eventBus.publish(
-        new MemberPasswordChangedEvent(
-          event.eventData.memberId,
-          event.eventData.changedAt,
-        ),
-      );
-    }
-
-    updatedMember.clearDomainEvents();
-  }
-}
-```
-
-**적용 파일:**
-- `/Users/moon/Developments/project/prepair/backend-ts/src/domain/member/member.ts`
-- `/Users/moon/Developments/project/prepair/backend-ts/src/domain/oauth/oauth.ts` (OAuthConnection도 동일 패턴)
-- 모든 CommandHandlers (register, update, withdraw, changePassword, changeEmail, resetPassword)
-
-**효과:**
-- 비즈니스 로직과 이벤트 생성이 Aggregate 내부로 응집
-- CommandHandler는 순수하게 오케스트레이션만 담당
-- 이벤트 누락 불가능 (상태 변경 시 항상 이벤트 발생 보장)
-- Event Sourcing 재생 시 정확한 상태 재구성 가능
-
----
-
-## Phase 2: Critical - CQRS Aggregate 경계 위반 수정
-
-**우선순위: Critical**
+**우선순위: 최우선**
 
 ### 배경
 `AuthService.login()`과 `KakaoAuthService.handleCallback()`에서 Read Model(MemberReadEntity)을 직접 수정하여 CQRS 패턴을 위반하고 있습니다. Read Model은 EventHandler를 통해서만 업데이트되어야 합니다.
 
-### 2.1 로그인 활동 로그를 이벤트 기반으로 변경
+### 1.1 로그인 활동 로그를 이벤트 기반으로 변경
 
 **현재 문제:**
 
-`/Users/moon/Developments/project/prepair/backend-ts/src/application/auth/auth.service.ts` (Line 63-74)
+**파일: `/Users/moon/Developments/project/prepair/backend-ts/src/application/auth/auth.service.ts` (Line 63-74)**
 ```typescript
 // ❌ Read Model을 직접 수정 (CQRS 위반)
 const readEntity: MemberReadEntity | null =
@@ -401,7 +86,7 @@ if (readEntity) {
 }
 ```
 
-`/Users/moon/Developments/project/prepair/backend-ts/src/application/oauth/kakao-auth.service.ts` (Line 249-260)
+**파일: `/Users/moon/Developments/project/prepair/backend-ts/src/application/oauth/kakao-auth.service.ts` (Line 249-260)**
 ```typescript
 // ❌ 동일한 패턴으로 Read Model 직접 수정
 private async updateActivityLog(memberId: string): Promise<void> {
@@ -423,7 +108,7 @@ private async updateActivityLog(memberId: string): Promise<void> {
 
 **Step 1: 도메인 이벤트 정의**
 
-`/Users/moon/Developments/project/prepair/backend-ts/src/domain/member/events/member-logged-in.event.ts` (신규)
+`/Users/moon/Developments/project/prepair/backend-ts/src/domain/member/events/member-logged-in.event.ts` **(신규)**
 ```typescript
 import { IEvent } from "@nestjs/cqrs";
 
@@ -487,7 +172,7 @@ export class AuthService {
 
 **Step 3: EventHandler 생성**
 
-`/Users/moon/Developments/project/prepair/backend-ts/src/application/member/event/member-logged-in-event-handler.service.ts` (신규)
+`/Users/moon/Developments/project/prepair/backend-ts/src/application/member/event/member-logged-in-event-handler.service.ts` **(신규)**
 ```typescript
 import { Injectable, Inject } from "@nestjs/common";
 import { EventsHandler, IEventHandler } from "@nestjs/cqrs";
@@ -516,7 +201,7 @@ export class MemberLoggedInEventHandler
     });
 
     try {
-      // ✅ Read Model 조회 (Phase 1 적용 후 MemberReadDto 사용)
+      // Read Model 조회
       const readEntity = await this.memberReadRepository.findById(event.memberId);
 
       if (readEntity) {
@@ -595,7 +280,7 @@ export class KakaoAuthService {
     };
   }
 
-  // ❌ updateActivityLog() 메서드 완전 제거
+  // ❌ updateActivityLog() 메서드 완전 제거 (line 249-260)
 }
 ```
 
@@ -616,39 +301,39 @@ const EventHandlers = [
 ];
 
 @Module({
-  // ...
   providers: [
     ...CommandHandlers,
     ...QueryHandlers,
-    ...EventHandlers,  // ✅ 자동 등록
+    ...EventHandlers,
     // ...
   ],
 })
 export class MemberModule {}
 ```
 
-**적용 파일:**
-- `/Users/moon/Developments/project/prepair/backend-ts/src/application/auth/auth.service.ts` (line 63-74 제거)
-- `/Users/moon/Developments/project/prepair/backend-ts/src/application/oauth/kakao-auth.service.ts` (line 249-260 제거)
-- `/Users/moon/Developments/project/prepair/backend-ts/src/domain/member/events/member-logged-in.event.ts` (신규)
-- `/Users/moon/Developments/project/prepair/backend-ts/src/application/member/event/member-logged-in-event-handler.service.ts` (신규)
+**수정 파일 목록:**
+- ✏️ `/Users/moon/Developments/project/prepair/backend-ts/src/application/auth/auth.service.ts` (line 63-74 제거)
+- ✏️ `/Users/moon/Developments/project/prepair/backend-ts/src/application/oauth/kakao-auth.service.ts` (line 249-260 제거)
+- ➕ `/Users/moon/Developments/project/prepair/backend-ts/src/domain/member/events/member-logged-in.event.ts`
+- ➕ `/Users/moon/Developments/project/prepair/backend-ts/src/application/member/event/member-logged-in-event-handler.service.ts`
+- ✏️ `/Users/moon/Developments/project/prepair/backend-ts/src/adapter/member/member.module.ts`
 
 **효과:**
-- CQRS 패턴 준수 (Read Model은 EventHandler를 통해서만 업데이트)
-- Aggregate 경계 명확화
-- 로그인 활동 이력이 Event Store에 기록됨 (감사 추적 가능)
+- ✅ CQRS 패턴 준수 (Read Model은 EventHandler를 통해서만 업데이트)
+- ✅ Aggregate 경계 명확화
+- ✅ 로그인 활동 이력이 Event Store에 기록됨 (감사 추적 가능)
 
 ---
 
-## Phase 3: Critical - Port 인터페이스 순수화
+## Phase 2: Critical - Port 인터페이스 순수화
 
 **우선순위: Critical**
 
-### 3.1 MemberReadRepository Port를 Application DTO로 변경
+### 2.1 MemberReadRepository Port를 Application DTO로 변경
 
 **현재 문제:**
 
-`/Users/moon/Developments/project/prepair/backend-ts/src/application/member/ports/member-read.repository.ts`
+**파일: `/Users/moon/Developments/project/prepair/backend-ts/src/application/member/ports/member-read.repository.ts`**
 ```typescript
 // ❌ Adapter 계층 Entity를 타입으로 노출
 import { MemberReadEntity } from "@/adapter/member/persistence/read/entity/member-read.entity";
@@ -667,7 +352,7 @@ export interface MemberReadRepository {
 export const MEMBER_READ_REPOSITORY = Symbol("MemberReadRepository");
 ```
 
-**영향받는 파일:**
+**영향받는 파일 (9개):**
 - `/Users/moon/Developments/project/prepair/backend-ts/src/application/member/query/get-member.query.ts`
 - `/Users/moon/Developments/project/prepair/backend-ts/src/application/member/query/get-member-email.query.ts`
 - `/Users/moon/Developments/project/prepair/backend-ts/src/application/member/command/member-withdraw.command.ts`
@@ -682,7 +367,7 @@ export const MEMBER_READ_REPOSITORY = Symbol("MemberReadRepository");
 
 **Step 1: Application DTO 생성**
 
-`/Users/moon/Developments/project/prepair/backend-ts/src/application/member/dto/member-read.dto.ts` (신규)
+`/Users/moon/Developments/project/prepair/backend-ts/src/application/member/dto/member-read.dto.ts` **(신규)**
 ```typescript
 import { FrequencyEnum, NotificationEnum } from "@/domain/member";
 
@@ -828,19 +513,9 @@ import { MemberReadEntity } from "@/adapter/member/persistence/read";
 
 export class GetMemberHandler implements IQueryHandler<GetMemberQuery, GetMemberResult> {
   async execute(query: GetMemberQuery): Promise<GetMemberResult> {
-    const member: MemberReadEntity | null =  // ❌ Adapter 타입
+    const member: MemberReadEntity | null =
       await this.memberReadRepository.findById(query.memberId);
-
-    if (!member) {
-      throw new NotFoundException(`Member not found: ${query.memberId}`);
-    }
-
-    return new GetMemberResult(
-      member.id,
-      member.email,
-      member.job,
-      // ...
-    );
+    // ...
   }
 }
 
@@ -849,7 +524,7 @@ import { MemberReadDto } from "@/application/member/dto/member-read.dto";
 
 export class GetMemberHandler implements IQueryHandler<GetMemberQuery, GetMemberResult> {
   async execute(query: GetMemberQuery): Promise<GetMemberResult> {
-    const member: MemberReadDto | null =  // ✅ Application DTO
+    const member: MemberReadDto | null =
       await this.memberReadRepository.findById(query.memberId);
 
     if (!member) {
@@ -876,18 +551,17 @@ export class GetMemberHandler implements IQueryHandler<GetMemberQuery, GetMember
 `/Users/moon/Developments/project/prepair/backend-ts/src/application/member/event/member-register-event-handler.service.ts`
 ```typescript
 // ❌ 변경 전
-import { EntityManager } from "@mikro-orm/core";  // ❌ ORM 직접 의존
-import { MemberReadEntity } from "@/adapter/member/persistence/read";  // ❌ Adapter 의존
+import { EntityManager } from "@mikro-orm/core";
+import { MemberReadEntity } from "@/adapter/member/persistence/read";
 
 @EventsHandler(MemberRegisterEvent)
 export class MemberRegisterEventHandler {
-  constructor(private readonly em: EntityManager) {}  // ❌ 인프라 직접 주입
+  constructor(private readonly em: EntityManager) {}
 
   async handle(event: MemberRegisterEvent): Promise<void> {
     const em: EntityManager = this.em.fork();
-    const readEntity = new MemberReadEntity();  // ❌ Entity 직접 생성
+    const readEntity = new MemberReadEntity();
     readEntity.id = event.memberId;
-    readEntity.email = event.email;
     // ...
     em.persist(readEntity);
     await em.flush();
@@ -905,7 +579,7 @@ import { MemberReadDto } from "@/application/member/dto/member-read.dto";
 export class MemberRegisterEventHandler {
   constructor(
     @Inject(MEMBER_READ_REPOSITORY)
-    private readonly memberReadRepository: MemberReadRepository,  // ✅ Port 사용
+    private readonly memberReadRepository: MemberReadRepository,
     @Inject(LOGGER)
     private readonly logger: ILogger,
   ) {}
@@ -930,7 +604,7 @@ export class MemberRegisterEventHandler {
         updatedAt: event.occurredAt,
       });
 
-      this.memberReadRepository.save(dto);  // ✅ Repository 패턴
+      this.memberReadRepository.save(dto);
 
       this.logger.log("Member register event handling completed", {
         module: "MemberRegisterEventHandler",
@@ -951,24 +625,233 @@ export class MemberRegisterEventHandler {
 }
 ```
 
-**동일한 패턴으로 수정할 EventHandlers:**
-- `/Users/moon/Developments/project/prepair/backend-ts/src/application/member/event/member-update-event-handler.service.ts`
-- `/Users/moon/Developments/project/prepair/backend-ts/src/application/member/event/member-email-changed-event-handler.service.ts`
-- `/Users/moon/Developments/project/prepair/backend-ts/src/application/member/event/member-password-reset-event-handler.service.ts`
-- `/Users/moon/Developments/project/prepair/backend-ts/src/application/member/event/member-logged-in-event-handler.service.ts` (Phase 2에서 생성)
+**동일한 패턴으로 수정할 파일들:**
 
-### 3.2 RefreshTokenRepository Port 수정
+#### MemberUpdateEventHandler
+
+`/Users/moon/Developments/project/prepair/backend-ts/src/application/member/event/member-update-event-handler.service.ts`
+
+```typescript
+// ❌ 변경 전
+import { MemberReadEntity } from "@/adapter/member/persistence/read";
+import { EntityManager } from "@mikro-orm/postgresql";
+
+@EventsHandler(MemberUpdateEvent)
+export class MemberUpdateEventHandler {
+  constructor(
+    private readonly em: EntityManager,  // ❌ EntityManager 직접 사용
+    @Inject(LOGGER)
+    private readonly logger: ILogger,
+  ) {}
+
+  async handle(event: MemberUpdateEvent) {
+    const em: EntityManager = this.em.fork();
+    const entity: MemberReadEntity | null = await em.findOne(MemberReadEntity, { id: event.memberId });
+    // ❌ Entity 직접 수정
+    entity.email = event.email;
+    entity.job = event.job;
+    // ...
+    await em.flush();
+  }
+}
+
+// ✅ 변경 후
+import {
+  MEMBER_READ_REPOSITORY,
+  MemberReadDto,
+  type MemberReadRepository,
+} from "@/application/member/ports";
+
+@EventsHandler(MemberUpdateEvent)
+export class MemberUpdateEventHandler {
+  constructor(
+    @Inject(MEMBER_READ_REPOSITORY)
+    private readonly memberReadRepository: MemberReadRepository,  // ✅ Repository Port 사용
+    @Inject(LOGGER)
+    private readonly logger: ILogger,
+  ) {}
+
+  async handle(event: MemberUpdateEvent) {
+    const existingDto = await this.memberReadRepository.findById(event.memberId);
+
+    if (!existingDto) {
+      this.logger.warn("Member read entity not found", {
+        module: "MemberUpdateEventHandler",
+        memberId: event.memberId,
+      });
+      return;
+    }
+
+    // ✅ 새로운 DTO 생성하여 Repository에 저장
+    const updatedDto = new MemberReadDto({
+      id: existingDto.id,
+      email: event.email,
+      job: event.job,
+      nickname: event.nickname,
+      notification: event.notification,
+      frequency: event.frequency,
+      point: event.point,
+      isPro: event.isPro,
+      createdAt: existingDto.createdAt,
+      updatedAt: event.occurredAt,
+      activity: existingDto.activity,
+    });
+
+    this.memberReadRepository.save(updatedDto);
+  }
+}
+```
+
+#### MemberEmailChangedEventHandler
+
+`/Users/moon/Developments/project/prepair/backend-ts/src/application/member/event/member-email-changed-event-handler.service.ts`
+
+```typescript
+// ❌ 변경 전
+import { MemberReadEntity } from "@/adapter/member/persistence/read";
+import { EntityManager } from "@mikro-orm/postgresql";
+
+@EventsHandler(MemberEmailChangedEvent)
+export class MemberEmailChangedEventHandler {
+  constructor(
+    private readonly em: EntityManager,
+    @Inject(LOGGER)
+    private readonly logger: ILogger,
+  ) {}
+
+  async handle(event: MemberEmailChangedEvent) {
+    const em: EntityManager = this.em.fork();
+    const entity: MemberReadEntity | null = await em.findOne(MemberReadEntity, { id: event.memberId });
+    entity.email = event.newEmail;  // ❌ Entity 직접 수정
+    entity.updatedAt = event.occurredAt;
+    await em.flush();
+  }
+}
+
+// ✅ 변경 후
+import {
+  MEMBER_READ_REPOSITORY,
+  MemberReadDto,
+  type MemberReadRepository,
+} from "@/application/member/ports";
+
+@EventsHandler(MemberEmailChangedEvent)
+export class MemberEmailChangedEventHandler {
+  constructor(
+    @Inject(MEMBER_READ_REPOSITORY)
+    private readonly memberReadRepository: MemberReadRepository,
+    @Inject(LOGGER)
+    private readonly logger: ILogger,
+  ) {}
+
+  async handle(event: MemberEmailChangedEvent) {
+    const existingDto = await this.memberReadRepository.findById(event.memberId);
+
+    if (!existingDto) {
+      this.logger.warn("Member read entity not found", {
+        module: "MemberEmailChangedEventHandler",
+        memberId: event.memberId,
+      });
+      return;
+    }
+
+    // ✅ 이메일만 변경된 새 DTO 생성
+    const updatedDto = new MemberReadDto({
+      ...existingDto,  // 기존 값 복사
+      email: event.newEmail,  // 이메일만 변경
+      updatedAt: event.occurredAt,
+    });
+
+    this.memberReadRepository.save(updatedDto);
+  }
+}
+```
+
+#### MemberPasswordResetEventHandler
+
+`/Users/moon/Developments/project/prepair/backend-ts/src/application/member/event/member-password-reset-event-handler.service.ts`
+
+```typescript
+// ❌ 변경 전
+import { MemberReadEntity } from "@/adapter/member/persistence/read";
+import { EntityManager } from "@mikro-orm/postgresql";
+
+@EventsHandler(MemberPasswordResetEvent)
+export class MemberPasswordResetEventHandler {
+  constructor(
+    private readonly em: EntityManager,
+    @Inject(LOGGER)
+    private readonly logger: ILogger,
+  ) {}
+
+  async handle(event: MemberPasswordResetEvent) {
+    const em: EntityManager = this.em.fork();
+    const entity: MemberReadEntity | null = await em.findOne(MemberReadEntity, { id: event.memberId });
+    entity.updatedAt = event.occurredAt;  // ❌ Entity 직접 수정
+    await em.flush();
+  }
+}
+
+// ✅ 변경 후
+import {
+  MEMBER_READ_REPOSITORY,
+  MemberReadDto,
+  type MemberReadRepository,
+} from "@/application/member/ports";
+
+@EventsHandler(MemberPasswordResetEvent)
+export class MemberPasswordResetEventHandler {
+  constructor(
+    @Inject(MEMBER_READ_REPOSITORY)
+    private readonly memberReadRepository: MemberReadRepository,
+    @Inject(LOGGER)
+    private readonly logger: ILogger,
+  ) {}
+
+  async handle(event: MemberPasswordResetEvent) {
+    const existingDto = await this.memberReadRepository.findById(event.memberId);
+
+    if (!existingDto) {
+      this.logger.warn("Member read entity not found", {
+        module: "MemberPasswordResetEventHandler",
+        memberId: event.memberId,
+      });
+      return;
+    }
+
+    // ✅ updatedAt만 변경된 새 DTO 생성
+    const updatedDto = new MemberReadDto({
+      ...existingDto,
+      updatedAt: event.occurredAt,
+    });
+
+    this.memberReadRepository.save(updatedDto);
+  }
+}
+```
+
+**공통 수정 패턴 요약:**
+
+| 항목 | 변경 전 | 변경 후 |
+|------|---------|---------|
+| 의존성 | `EntityManager` | `MemberReadRepository` (Port) |
+| 타입 | `MemberReadEntity` (Adapter) | `MemberReadDto` (Application) |
+| 조회 | `em.findOne(MemberReadEntity, ...)` | `memberReadRepository.findById(...)` |
+| 수정 | Entity 프로퍼티 직접 변경 | 새로운 불변 DTO 생성 |
+| 저장 | `em.flush()` | `memberReadRepository.save(dto)` |
+
+### 2.2 RefreshTokenRepository Port 수정
 
 **현재 문제:**
 
-`/Users/moon/Developments/project/prepair/backend-ts/src/application/auth/ports/refresh-token.repository.ts`
+**파일: `/Users/moon/Developments/project/prepair/backend-ts/src/application/auth/ports/refresh-token.repository.ts`**
 ```typescript
 // ❌ Adapter Entity 노출
 import { RefreshTokenEntity } from "@/adapter/auth/persistence/entity/refresh-token.entity";
 
 export interface RefreshTokenRepository {
-  save(entity: RefreshTokenEntity): Promise<void>;  // ❌
-  findByToken(token: string): Promise<RefreshTokenEntity | null>;  // ❌
+  save(entity: RefreshTokenEntity): Promise<void>;
+  findByToken(token: string): Promise<RefreshTokenEntity | null>;
   delete(id: string): Promise<void>;
   deleteByToken(token: string): Promise<void>;
   deleteByMemberId(memberId: string): Promise<void>;
@@ -979,7 +862,7 @@ export interface RefreshTokenRepository {
 
 **Step 1: Application DTO 생성**
 
-`/Users/moon/Developments/project/prepair/backend-ts/src/application/auth/dto/refresh-token.dto.ts` (신규)
+`/Users/moon/Developments/project/prepair/backend-ts/src/application/auth/dto/refresh-token.dto.ts` **(신규)**
 ```typescript
 export class RefreshTokenDto {
   readonly id: string;
@@ -1086,7 +969,7 @@ export class RefreshTokenService {
       id: randomUUID(),
       memberId,
       token,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),  // 30 days
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       createdAt: new Date(),
     });
 
@@ -1117,15 +1000,15 @@ export class RefreshTokenService {
 
 ---
 
-## Phase 4: Important - Application Service Port 의존성 해소
+## Phase 3: Important - Application Service Port 의존성 해소
 
 **우선순위: Important**
 
-### 4.1 OAuth Provider Port 생성
+### 3.1 OAuth Provider Port 생성
 
 **현재 문제:**
 
-`/Users/moon/Developments/project/prepair/backend-ts/src/application/oauth/kakao-auth.service.ts`
+**파일: `/Users/moon/Developments/project/prepair/backend-ts/src/application/oauth/kakao-auth.service.ts`**
 ```typescript
 // ❌ Adapter Service 직접 의존
 import { KakaoOauthService } from "@/adapter/oauth/kakao/kakao-oauth.service";
@@ -1133,7 +1016,7 @@ import { JwtService } from "@/adapter/auth/security";
 import {
   KakaoUserInfo,
   KakaoUserProfile,
-} from "@/adapter/oauth/kakao/types/kakao-oauth.types";  // ❌ Adapter 타입
+} from "@/adapter/oauth/kakao/types/kakao-oauth.types";
 
 @Injectable()
 export class KakaoAuthService {
@@ -1141,15 +1024,6 @@ export class KakaoAuthService {
     private readonly kakaoOAuthService: KakaoOauthService,  // ❌ 구체 타입
     private readonly jwtService: JwtService,  // ❌ 구체 타입
   ) {}
-
-  async handleCallback(code: string) {
-    const kakaoTokens =
-      await this.kakaoOAuthService.exchangeCodeForAccessToken(code);
-    const kakaoUser = await this.kakaoOAuthService.getUserInfo(
-      kakaoTokens.access_token,
-    );
-    // Adapter 타입 사용
-  }
 }
 ```
 
@@ -1157,7 +1031,7 @@ export class KakaoAuthService {
 
 **Step 1: Port 인터페이스 정의**
 
-`/Users/moon/Developments/project/prepair/backend-ts/src/application/oauth/ports/oauth-provider.port.ts` (신규)
+`/Users/moon/Developments/project/prepair/backend-ts/src/application/oauth/ports/oauth-provider.port.ts` **(신규)**
 ```typescript
 export interface OAuthTokenResponse {
   accessToken: string;
@@ -1194,7 +1068,6 @@ import {
 @Injectable()
 export class KakaoOAuthService implements OAuthProvider {
   async exchangeCodeForAccessToken(code: string): Promise<OAuthTokenResponse> {
-    // Kakao API 호출
     const tokenUrl = "https://kauth.kakao.com/oauth/token";
     const response = await fetch(tokenUrl, { /* ... */ });
     const kakaoTokens = await response.json();
@@ -1240,7 +1113,7 @@ export class KakaoAuthService {
   constructor(
     @Inject(KAKAO_OAUTH_PROVIDER)
     private readonly oauthProvider: OAuthProvider,  // ✅ Port 인터페이스
-    // JwtService도 Port로 변경 (4.2 참고)
+    // JwtService도 Port로 변경 (3.2 참고)
   ) {}
 
   async handleCallback(code: string) {
@@ -1248,9 +1121,8 @@ export class KakaoAuthService {
     const tokens = await this.oauthProvider.exchangeCodeForAccessToken(code);
     const userInfo = await this.oauthProvider.getUserInfo(tokens.accessToken);
 
-    const { providerId, email, nickname } = userInfo;  // ✅ Port 타입
-
-    // ... 비즈니스 로직
+    const { providerId, email, nickname } = userInfo;
+    // ...
   }
 }
 ```
@@ -1275,11 +1147,11 @@ import { KakaoOAuthService } from "./kakao/kakao-oauth.service";
 export class OAuthModule {}
 ```
 
-### 4.2 JWT Service Port 생성
+### 3.2 JWT Service Port 생성
 
 **Step 1: Port 정의**
 
-`/Users/moon/Developments/project/prepair/backend-ts/src/application/auth/ports/jwt.port.ts` (신규)
+`/Users/moon/Developments/project/prepair/backend-ts/src/application/auth/ports/jwt.port.ts` **(신규)**
 ```typescript
 export interface JwtToken {
   token: string;
@@ -1362,7 +1234,7 @@ export class AuthModule {}
 
 ---
 
-## Phase 5: Enhancement - Logger Port 재배치
+## Phase 4: Medium - Logger Port 재배치
 
 **우선순위: Medium**
 
@@ -1381,7 +1253,7 @@ import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
 
 **Step 1: Port를 Application 계층으로 이동**
 
-`/Users/moon/Developments/project/prepair/backend-ts/src/application/shared/ports/logger.port.ts` (신규)
+`/Users/moon/Developments/project/prepair/backend-ts/src/application/shared/ports/logger.port.ts` **(신규)**
 ```typescript
 export interface LogContext {
   module?: string;
@@ -1432,66 +1304,7 @@ find src/application -type f -name "*.ts" -exec sed -i '' \
 
 ---
 
-## Phase 6: Optional - Domain Event 프레임워크 독립
-
-**우선순위: Low** (마커 인터페이스이므로 실질적 영향 미미)
-
-### 배경
-Domain Events가 `@nestjs/cqrs`의 `IEvent` 인터페이스를 구현하여 이론적으로 Domain 계층이 프레임워크에 의존합니다.
-
-**현재 상황:**
-
-`/Users/moon/Developments/project/prepair/backend-ts/src/domain/member/events/member-register.event.ts`
-```typescript
-import { IEvent } from "@nestjs/cqrs";  // ⚠️ NestJS 의존
-
-export class MemberRegisterEvent implements IEvent {
-  constructor(
-    public readonly memberId: string,
-    public readonly email: string,
-    // ...
-  ) {}
-}
-```
-
-**동일 패턴 파일:**
-- `member-password-reset.event.ts`
-- `member-email-changed.event.ts`
-- `member-withdraw.event.ts`
-- `member-password-changed.event.ts`
-- `member-update.event.ts`
-
-**개선 방법 (선택적):**
-
-Phase 1에서 정의한 `IDomainEvent` 사용:
-
-```typescript
-// ✅ src/domain/member/events/member-register.event.ts
-import { IDomainEvent } from "@/domain/shared/domain-event";
-
-export class MemberRegisterEvent implements IDomainEvent {
-  readonly aggregateId: string;
-  readonly eventType = "MemberRegistered";
-
-  constructor(
-    public readonly memberId: string,
-    public readonly email: string,
-    // ...
-    public readonly occurredAt: Date = new Date(),
-  ) {
-    this.aggregateId = memberId;
-  }
-}
-```
-
-**평가:**
-- 이 변경은 선택적이며, `IEvent`는 빈 마커 인터페이스이므로 실질적 문제 없음
-- Domain 이론적 순수성을 위해서만 필요
-- 프로젝트 우선순위에 따라 결정
-
----
-
-## Phase 7: Enhancement - Repository 인터페이스 일관성 개선
+## Phase 5: Low-Medium - Repository 인터페이스 일관성 개선
 
 **우선순위: Low-Medium**
 
@@ -1500,14 +1313,14 @@ Repository 메서드 시그니처가 일관성이 없습니다.
 
 **현재 문제:**
 
-`/Users/moon/Developments/project/prepair/backend-ts/src/domain/member/member.repository.ts`
+**파일: `/Users/moon/Developments/project/prepair/backend-ts/src/domain/member/member.repository.ts`**
 ```typescript
 export interface MemberRepository {
   register(member: Member): Member;  // ❌ Member 반환 (불필요)
   withdraw(memberId: string): void;  // ❌ 동기 메서드 (다른 건 비동기)
   update(member: Member): Member;  // ❌ Member 반환 (불필요)
-  findById(id: string): Promise<Member | null>;  // ✅ 일관성 있음
-  findByEmail(email: string): Promise<Member | null>;  // ✅ 일관성 있음
+  findById(id: string): Promise<Member | null>;
+  findByEmail(email: string): Promise<Member | null>;
 }
 ```
 
@@ -1531,7 +1344,7 @@ export const MEMBER_REPOSITORY = Symbol("MemberRepository");
 
 ---
 
-## Phase 8: Minor - Value Object 불변성 강화
+## Phase 6: Low - Value Object 불변성 강화
 
 **우선순위: Low**
 
@@ -1540,7 +1353,7 @@ export const MEMBER_REPOSITORY = Symbol("MemberRepository");
 
 **현재 문제:**
 
-`/Users/moon/Developments/project/prepair/backend-ts/src/domain/member/value-objects/verification-code.ts`
+**파일: `/Users/moon/Developments/project/prepair/backend-ts/src/domain/member/value-objects/verification-code.ts`**
 ```typescript
 export class VerificationCode {
   private readonly _expiresAt: Date;
@@ -1576,37 +1389,27 @@ export class VerificationCode {
 
 ## 📂 체크리스트
 
-### Phase 1: Aggregate 이벤트 패턴 (Critical)
-
-- [ ] `src/domain/shared/domain-event.ts`에 `IDomainEvent`, `DomainEvent` 정의
-- [ ] `src/domain/member/member.ts`에 `_domainEvents` 배열 추가
-- [ ] `Member.register()` 메서드에 이벤트 생성 로직 추가
-- [ ] `Member.changePassword()` 메서드에 이벤트 생성 로직 추가
-- [ ] `Member.withdraw()` 메서드에 이벤트 생성 로직 추가
-- [ ] `Member.update()` 메서드에 이벤트 생성 로직 추가
-- [ ] `Member.changeEmail()` 메서드에 이벤트 생성 로직 추가
-- [ ] `Member.resetPassword()` 메서드에 이벤트 생성 로직 추가
-- [ ] `Member.getDomainEvents()`, `clearDomainEvents()` 메서드 추가
-- [ ] `src/domain/oauth/oauth.ts`에 동일 패턴 적용
-- [ ] 모든 CommandHandler에서 Aggregate 이벤트 수집 로직으로 변경
-
-### Phase 2: CQRS Aggregate 경계 (Critical)
+### Phase 1: CQRS Aggregate 경계 (Critical)
 
 - [ ] `src/domain/member/events/member-logged-in.event.ts` 생성
 - [ ] `src/application/member/event/member-logged-in-event-handler.service.ts` 생성
 - [ ] `AuthService.login()`에서 Read Model 직접 수정 제거 (line 63-74)
+- [ ] `AuthService`에 `EventBus` 주입 추가
 - [ ] `KakaoAuthService.loginExistingMember()`에서 Read Model 직접 수정 제거
 - [ ] `KakaoAuthService.updateActivityLog()` 메서드 완전 제거 (line 249-260)
+- [ ] `KakaoAuthService`에 `EventBus` 주입 추가
 - [ ] `MemberModule`에 `MemberLoggedInEventHandler` 등록
 
-### Phase 3: Port 인터페이스 순수화 (Critical)
+### Phase 2: Port 인터페이스 순수화 (Critical)
 
 **MemberReadRepository:**
 - [ ] `src/application/member/dto/member-read.dto.ts` 생성
-- [ ] `MemberReadRepository` Port 인터페이스에서 `MemberReadEntity` 제거
+- [ ] `MemberReadRepository` Port 인터페이스에서 `MemberReadEntity` import 제거
+- [ ] `MemberReadRepository` 메서드 시그니처를 `MemberReadDto` 반환으로 변경
 - [ ] `MemberReadRepositoryImpl`에 `toDto()`, `toEntity()` Mapper 추가
-- [ ] `GetMemberHandler`에서 `MemberReadDto` 사용 (9개 파일)
-- [ ] 모든 `EventHandler`에서 `EntityManager` 제거, `MemberReadRepository` 사용 (6개 파일)
+- [ ] `GetMemberHandler`에서 `MemberReadDto` 사용
+- [ ] `GetMemberEmailQueryHandler`에서 `MemberReadDto` 사용
+- [ ] 모든 `EventHandler`에서 `EntityManager` 제거, `MemberReadRepository` 사용 (6개)
 
 **RefreshTokenRepository:**
 - [ ] `src/application/auth/dto/refresh-token.dto.ts` 생성
@@ -1614,36 +1417,34 @@ export class VerificationCode {
 - [ ] `RefreshTokenRepositoryImpl`에 `toDto()`, `toEntity()` Mapper 추가
 - [ ] `RefreshTokenService`에서 `RefreshTokenDto` 사용
 
-### Phase 4: Application Service Port (Important)
+### Phase 3: Application Service Port (Important)
 
+**OAuth Provider:**
 - [ ] `src/application/oauth/ports/oauth-provider.port.ts` 생성
 - [ ] `KakaoOAuthService`를 `OAuthProvider` 구현으로 수정
 - [ ] `KakaoAuthService`에서 Port 인터페이스 사용
 - [ ] `OAuthModule`에 DI 설정
+
+**JWT Service:**
 - [ ] `src/application/auth/ports/jwt.port.ts` 생성
 - [ ] `JwtService`를 `JwtPort` 구현으로 수정
 - [ ] `AuthModule`에 DI 설정
 
-### Phase 5: Logger Port 재배치 (Medium)
+### Phase 4: Logger Port 재배치 (Medium)
 
 - [ ] `src/application/shared/ports/logger.port.ts` 생성
 - [ ] `src/adapter/shared/logger/logger.inferface.ts` 삭제
 - [ ] `WinstonLogger`에서 새로운 Port import
 - [ ] 모든 Application 파일 import 경로 변경 (28개)
 
-### Phase 6: Domain Event 프레임워크 독립 (Optional)
-
-- [ ] 6개 도메인 이벤트에서 `IEvent` 제거
-- [ ] `IDomainEvent` 구현으로 변경
-- [ ] (선택) Integration Event Wrapper 패턴 도입
-
-### Phase 7: Repository 일관성 (Low-Medium)
+### Phase 5: Repository 일관성 (Low-Medium)
 
 - [ ] `MemberRepository.register()` → `save()`로 변경, `Promise<void>` 반환
 - [ ] `MemberRepository.update()` → `save()`로 통합
 - [ ] `MemberRepository.withdraw()` → `delete()`로 변경, `Promise<void>` 반환
+- [ ] `MemberRepositoryImpl` 구현 변경
 
-### Phase 8: Value Object 불변성 (Low)
+### Phase 6: Value Object 불변성 (Low)
 
 - [ ] `VerificationCode.expiresAt` getter에 Defensive copy 추가
 
@@ -1653,20 +1454,11 @@ export class VerificationCode {
 
 ### 헥사고날 아키텍처 준수도
 
-**현재: 70/100 → 개선 후: 95/100**
+**현재: 70/100 → 개선 후: 92/100**
 
 - ✅ Application → Adapter 역방향 의존성 완전 제거
 - ✅ Port 인터페이스가 Adapter 타입 미노출
-- ✅ Domain 계층 완전한 프레임워크 독립
-
-### DDD 패턴 준수도
-
-**현재: 75/100 → 개선 후: 95/100**
-
-- ✅ Aggregate가 도메인 이벤트 생성 (비즈니스 로직 응집)
-- ✅ Aggregate 경계 명확화 (Read Model 직접 수정 제거)
-- ✅ Repository 패턴 일관성 확보
-- ✅ CQRS 패턴 엄격한 준수
+- ✅ Logger Port가 Application 계층으로 이동
 
 ### 테스트 용이성
 
@@ -1675,7 +1467,6 @@ export class VerificationCode {
 // Adapter Entity 모킹 필요
 const mockEntity = new MemberReadEntity();
 mockEntity.id = "...";
-// ORM 의존성
 ```
 
 **After:**
@@ -1691,7 +1482,7 @@ const mockDto = new MemberReadDto({
 ### 유연성
 
 - ORM 교체 시 Adapter만 수정 (Application/Domain 무영향)
-- 이벤트 버스 교체 시 Integration Event만 수정
+- OAuth Provider 교체 시 Adapter만 수정
 - Logger 구현 교체 시 Adapter만 수정
 
 ---
@@ -1705,10 +1496,5 @@ const mockDto = new MemberReadDto({
 
 ---
 
-**분석 수행일:** 2026-01-21
-**분석 도구:**
-- DDD Pattern Reviewer Agent
-- Hexagonal Architecture Auditor Agent
-- Gemini Code Analysis Agent
-
-**작성자:** Claude Code Architecture Analysis Team
+**마지막 업데이트:** 2026-01-21
+**작성자:** Claude Code (Hexagonal Architecture Auditor)

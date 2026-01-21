@@ -1,4 +1,6 @@
-export class EmailAlreadyExistsException extends Error {
+import { DomainException } from "@/domain/shared/exception/domain.exception";
+
+export class EmailAlreadyExistsException extends DomainException {
   readonly errorCode = "EMAIL_ALREADY_EXISTS";
 
   constructor(email: string) {

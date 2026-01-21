@@ -5,12 +5,13 @@ import {
   Injectable,
 } from "@nestjs/common";
 import { KakaoOauthService } from "@/adapter/oauth/kakao/kakao-oauth.service";
-import { JwtService } from "@/adapter/auth/security";
+import { JwtService, TokenResponse } from "@/adapter/auth/security";
 import { RefreshTokenService } from "@/application/auth";
 import {
   FrequencyEnum,
   Member,
   MEMBER_REPOSITORY,
+  MemberLoginEvent,
   type MemberRepository,
   NotificationEnum,
 } from "@/domain/member";
@@ -29,11 +30,12 @@ import {
   KakaoUserProfile,
 } from "@/adapter/oauth/kakao/types/kakao-oauth.types";
 import { OAuthRegistrationTokenService } from "@/application/oauth/oauth-registration-token.service";
-import { CommandBus } from "@nestjs/cqrs";
+import { CommandBus, EventBus } from "@nestjs/cqrs";
 import {
   OAuthMemberRegisterCommand,
   OAuthMemberRegisterCommandResult,
 } from "@/application/oauth/command/oauth-member-register.command";
+import { MemberReadEntity } from "@/adapter/member/persistence/read";
 
 @Injectable()
 export class KakaoAuthService {
@@ -50,6 +52,7 @@ export class KakaoAuthService {
     @Inject(MEMBER_READ_REPOSITORY)
     private readonly memberReadRepository: MemberReadRepository,
     private readonly em: EntityManager,
+    private readonly eventBus: EventBus,
   ) {}
 
   async handleCallback(code: string) {
@@ -173,7 +176,8 @@ export class KakaoAuthService {
    * 기존 회원 로그인 처리
    */
   private async loginExistingMember(memberId: string) {
-    const member = await this.memberRepository.findById(memberId);
+    const member: Member | null =
+      await this.memberRepository.findById(memberId);
 
     if (!member) {
       throw new BadRequestException(
@@ -181,14 +185,16 @@ export class KakaoAuthService {
       );
     }
 
-    await this.updateActivityLog(memberId);
+    this.eventBus.publish(new MemberLoginEvent(memberId));
 
-    const accessToken = this.jwtService.generateAccessToken(
+    const accessToken: TokenResponse = this.jwtService.generateAccessToken(
       member.id,
       member.email.value,
     );
 
-    const refreshToken = await this.refreshTokenService.create(member.id);
+    const refreshToken: string = await this.refreshTokenService.create(
+      member.id,
+    );
 
     await this.em.flush();
 
@@ -241,21 +247,5 @@ export class KakaoAuthService {
     }
 
     return { kakaoId, email, nickname };
-  }
-
-  /**
-   * 활동 기록 업데이트
-   */
-  private async updateActivityLog(memberId: string): Promise<void> {
-    const readEntity = await this.memberReadRepository.findById(memberId);
-
-    if (readEntity) {
-      const today = new Date().toISOString().slice(0, 10);
-      readEntity.activity = readEntity.activity ?? [];
-
-      if (!readEntity.activity.includes(today)) {
-        readEntity.activity.push(today);
-      }
-    }
   }
 }

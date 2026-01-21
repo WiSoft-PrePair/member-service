@@ -11,6 +11,7 @@ import {
 import { GetMemberHandler } from "@/application/member/query";
 import {
   MemberEmailChangedEventHandler,
+  MemberLoginEventHandler,
   MemberPasswordChangedEventHandler,
   MemberPasswordResetEventHandler,
   MemberRegisterEventHandler,
@@ -39,4 +40,5 @@ export const EventHandlers = [
   MemberPasswordChangedEventHandler,
   MemberEmailChangedEventHandler,
   MemberPasswordResetEventHandler,
+  MemberLoginEventHandler,
 ];
