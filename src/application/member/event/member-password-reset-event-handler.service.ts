@@ -1,8 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { MemberPasswordResetEvent } from "@/domain/member/events/member-password-reset.event";
 import { EventsHandler, IEventHandler } from "@nestjs/cqrs";
-import { EntityManager } from "@mikro-orm/postgresql";
-import { MemberReadEntity } from "@/adapter/member/persistence/read";
 import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
 import {
   MEMBER_READ_REPOSITORY,
@@ -12,7 +10,9 @@ import {
 
 @Injectable()
 @EventsHandler(MemberPasswordResetEvent)
-export class MemberPasswordResetEventHandler implements IEventHandler<MemberPasswordResetEvent> {
+export class MemberPasswordResetEventHandler
+  implements IEventHandler<MemberPasswordResetEvent>
+{
   constructor(
     @Inject(MEMBER_READ_REPOSITORY)
     private readonly memberReadRepository: MemberReadRepository,

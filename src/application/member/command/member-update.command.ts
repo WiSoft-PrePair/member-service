@@ -13,11 +13,7 @@ import {
   NotificationEnum,
 } from "@/domain/member";
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
-import {
-  createDomainEvent,
-  EVENT_STORE,
-  type EventStore,
-} from "@/domain/shared";
+import { EVENT_STORE, type EventStore } from "@/domain/shared";
 import { EntityManager, Transactional } from "@mikro-orm/core";
 import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
 
@@ -33,10 +29,9 @@ export class MemberUpdateCommand implements ICommand {
 
 @Injectable()
 @CommandHandler(MemberUpdateCommand)
-export class MemberUpdateCommandHandler implements ICommandHandler<
-  MemberUpdateCommand,
-  string
-> {
+export class MemberUpdateCommandHandler
+  implements ICommandHandler<MemberUpdateCommand, string>
+{
   constructor(
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepository: MemberRepository,

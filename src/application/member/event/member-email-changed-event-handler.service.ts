@@ -1,8 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { EventsHandler, IEventHandler } from "@nestjs/cqrs";
 import { MemberEmailChangedEvent } from "@/domain/member";
-import { EntityManager } from "@mikro-orm/postgresql";
-import { MemberReadEntity } from "@/adapter/member/persistence/read";
 import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
 import {
   MEMBER_READ_REPOSITORY,
@@ -12,7 +10,9 @@ import {
 
 @Injectable()
 @EventsHandler(MemberEmailChangedEvent)
-export class MemberEmailChangedEventHandler implements IEventHandler<MemberEmailChangedEvent> {
+export class MemberEmailChangedEventHandler
+  implements IEventHandler<MemberEmailChangedEvent>
+{
   constructor(
     @Inject(MEMBER_READ_REPOSITORY)
     private readonly memberReadRepository: MemberReadRepository,

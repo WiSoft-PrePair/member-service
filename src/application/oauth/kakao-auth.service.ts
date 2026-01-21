@@ -35,7 +35,6 @@ import {
   OAuthMemberRegisterCommand,
   OAuthMemberRegisterCommandResult,
 } from "@/application/oauth/command/oauth-member-register.command";
-import { MemberReadEntity } from "@/adapter/member/persistence/read";
 
 @Injectable()
 export class KakaoAuthService {

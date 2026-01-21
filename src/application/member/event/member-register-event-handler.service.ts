@@ -10,7 +10,9 @@ import {
 
 @Injectable()
 @EventsHandler(MemberRegisterEvent)
-export class MemberRegisterEventHandler implements IEventHandler<MemberRegisterEvent> {
+export class MemberRegisterEventHandler
+  implements IEventHandler<MemberRegisterEvent>
+{
   constructor(
     @Inject(MEMBER_READ_REPOSITORY)
     private readonly memberReadRepository: MemberReadRepository,

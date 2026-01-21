@@ -9,7 +9,9 @@ import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
 
 @Injectable()
 @EventsHandler(MemberLoginEvent)
-export class MemberLoginEventHandler implements IEventHandler<MemberLoginEvent> {
+export class MemberLoginEventHandler
+  implements IEventHandler<MemberLoginEvent>
+{
   constructor(
     @Inject(MEMBER_READ_REPOSITORY)
     private readonly memberReadRepository: MemberReadRepository,

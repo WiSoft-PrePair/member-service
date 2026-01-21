@@ -13,11 +13,7 @@ import {
   PASSWORD_ENCODER,
   type PasswordEncoder,
 } from "@/domain/member";
-import {
-  createDomainEvent,
-  EVENT_STORE,
-  type EventStore,
-} from "@/domain/shared";
+import { EVENT_STORE, type EventStore } from "@/domain/shared";
 import { EntityManager } from "@mikro-orm/postgresql";
 import { EmailVerificationService } from "@/application/member";
 import { Transactional } from "@mikro-orm/core";
@@ -38,7 +34,9 @@ export class ResetPasswordCommand implements ICommand {
 
 @Injectable()
 @CommandHandler(ResetPasswordCommand)
-export class ResetPasswordCommandHandler implements ICommandHandler<ResetPasswordCommand> {
+export class ResetPasswordCommandHandler
+  implements ICommandHandler<ResetPasswordCommand>
+{
   constructor(
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepository: MemberRepository,

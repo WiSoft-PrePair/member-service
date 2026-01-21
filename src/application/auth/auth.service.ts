@@ -4,12 +4,6 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from "@nestjs/common";
-import { MemberReadEntity } from "@/adapter/member/persistence/read";
-import {
-  MEMBER_READ_REPOSITORY,
-  MemberReadDto,
-  type MemberReadRepository,
-} from "@/application/member/ports";
 import {
   Member,
   MEMBER_REPOSITORY,
@@ -19,7 +13,6 @@ import {
   type PasswordEncoder,
 } from "@/domain/member";
 import { LoginRequestDto } from "@/adapter/auth/api/dto";
-import { EntityManager } from "@mikro-orm/postgresql";
 import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
 import { EventBus } from "@nestjs/cqrs";
 
