@@ -28,8 +28,8 @@ services:
       - SERVICE_NAME=prepair-member-logs
       - SERVICE_ENV=production
       - ELASTICSEARCH_HOST=elasticsearch
-      - ELASTIC_USERNAME=${ELASTIC_USERNAME:-prepair}
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-changeme}
+      - ELASTIC_USERNAME=${ELASTIC_USERNAME}
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
     networks:
       - prepair-member-network
       - logging-network
