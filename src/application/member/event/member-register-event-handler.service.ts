@@ -61,10 +61,13 @@ export class MemberRegisterEventHandler
     } catch (error) {
       // Race condition으로 인한 중복 INSERT는 무시 (멱등성 보장)
       if (error instanceof UniqueConstraintViolationException) {
-        this.logger.warn("Member read entity already exists (race condition), skipping", {
-          module: "MemberRegisterEventHandler",
-          memberId: event.memberId,
-        });
+        this.logger.warn(
+          "Member read entity already exists (race condition), skipping",
+          {
+            module: "MemberRegisterEventHandler",
+            memberId: event.memberId,
+          },
+        );
         return;
       }
 

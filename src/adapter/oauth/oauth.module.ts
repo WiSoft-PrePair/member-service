@@ -7,8 +7,8 @@ import { OAuthConnectionEntity } from "@/adapter/oauth/persistence/entity/oauth.
 import { MemberModule } from "@/adapter/member/member.module";
 import { AuthModule } from "@/adapter/auth/auth.module";
 import { KakaoOauthController } from "@/adapter/oauth/api/kakao-oauth.controller";
-import { KakaoOAuthProvider }    from "@/adapter/oauth/kakao/kakao-oauth-provider.service";
-import { KakaOauthService }      from "@/application/oauth/kaka-oauth.service";
+import { KakaoOAuthProvider } from "@/adapter/oauth/kakao/kakao-oauth-provider.service";
+import { KakaOauthService } from "@/application/oauth/kaka-oauth.service";
 import { OAuthConnectionMapper } from "@/adapter/oauth/persistence/mapper/oauth.mapper";
 import { OAUTH_REPOSITORY } from "@/domain/oauth";
 import { OAuthConnectionRepositoryImpl } from "@/adapter/oauth/persistence/oauth.repository-impl";

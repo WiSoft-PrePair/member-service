@@ -1,11 +1,11 @@
 import { Member } from "@/domain/member/member";
 
 export interface MemberRepository {
-  register(member: Member): Member;
+  register(member: Member): Promise<Member>;
 
-  withdraw(memberId: string): void;
+  withdraw(memberId: string): Promise<void>;
 
-  update(member: Member): Member;
+  update(member: Member): Promise<Member>;
 
   findById(id: string): Promise<Member | null>;
 
