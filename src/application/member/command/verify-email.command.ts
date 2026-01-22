@@ -31,29 +31,20 @@ export class VerifyEmailCommandHandler
       email,
     });
 
-    try {
-      const verified = this.emailVerificationService.verifyCode(email, code);
+    const verified: boolean = this.emailVerificationService.verifyCode(
+      email,
+      code,
+    );
 
-      if (!verified) {
-        throw new InvalidVerificationCodeException();
-      }
-
-      this.logger.log("Email verification completed", {
-        module: "VerifyEmailCommandHandler",
-        email,
-      });
-
-      return { verified: true };
-    } catch (error) {
-      this.logger.error(
-        "Email verification failed",
-        error instanceof Error ? error : undefined,
-        {
-          module: "VerifyEmailCommandHandler",
-          email,
-        },
-      );
-      throw error;
+    if (!verified) {
+      throw new InvalidVerificationCodeException();
     }
+
+    this.logger.log("Email verification completed", {
+      module: "VerifyEmailCommandHandler",
+      email,
+    });
+
+    return { verified: true };
   }
 }

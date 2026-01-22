@@ -1,9 +1,9 @@
-import { RefreshTokenEntity } from "@/adapter/auth/persistence/entity/refresh-token.entity";
+import { RefreshTokenDto } from "@/application/auth/ports/refresh-token.dto";
 
 export interface RefreshTokenRepository {
-  save(entity: RefreshTokenEntity): Promise<void>;
+  save(dto: RefreshTokenDto): Promise<void>;
 
-  findByToken(token: string): Promise<RefreshTokenEntity | null>;
+  findByToken(token: string): Promise<RefreshTokenDto | null>;
 
   delete(id: string): Promise<void>;
 

@@ -1,9 +1,12 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { MemberPasswordResetEvent } from "@/domain/member/events/member-password-reset.event";
 import { EventsHandler, IEventHandler } from "@nestjs/cqrs";
-import { EntityManager } from "@mikro-orm/postgresql";
-import { MemberReadEntity } from "@/adapter/member/persistence/read";
 import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
+import {
+  MEMBER_READ_REPOSITORY,
+  MemberReadDto,
+  type MemberReadRepository,
+} from "@/application/member/ports";
 
 @Injectable()
 @EventsHandler(MemberPasswordResetEvent)
@@ -11,7 +14,8 @@ export class MemberPasswordResetEventHandler
   implements IEventHandler<MemberPasswordResetEvent>
 {
   constructor(
-    private readonly em: EntityManager,
+    @Inject(MEMBER_READ_REPOSITORY)
+    private readonly memberReadRepository: MemberReadRepository,
     @Inject(LOGGER)
     private readonly logger: ILogger,
   ) {}
@@ -22,42 +26,27 @@ export class MemberPasswordResetEventHandler
       memberId: event.memberId,
     });
 
-    try {
-      const em: EntityManager = this.em.fork();
+    const entity: MemberReadDto | null =
+      await this.memberReadRepository.findById(event.memberId);
 
-      const entity: MemberReadEntity | null = await em.findOne(
-        MemberReadEntity,
-        {
-          id: event.memberId,
-        },
-      );
-
-      if (!entity) {
-        this.logger.warn("Member read entity not found", {
-          module: "MemberPasswordResetEventHandler",
-          memberId: event.memberId,
-        });
-        return;
-      }
-
-      entity.updatedAt = event.occurredAt;
-
-      await em.flush();
-
-      this.logger.log("Password reset event handling completed", {
+    if (!entity) {
+      this.logger.warn("Member read entity not found", {
         module: "MemberPasswordResetEventHandler",
         memberId: event.memberId,
       });
-    } catch (error) {
-      this.logger.error(
-        "Password reset event handling failed",
-        error instanceof Error ? error : undefined,
-        {
-          module: "MemberPasswordResetEventHandler",
-          memberId: event.memberId,
-        },
-      );
-      throw error;
+      return;
     }
+
+    const updatedDto = new MemberReadDto({
+      ...entity,
+      updatedAt: event.occurredAt,
+    });
+
+    this.memberReadRepository.save(updatedDto);
+
+    this.logger.log("Password reset event handling completed", {
+      module: "MemberPasswordResetEventHandler",
+      memberId: event.memberId,
+    });
   }
 }

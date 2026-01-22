@@ -1,4 +1,6 @@
-export class InvalidVerificationCodeException extends Error {
+import { DomainException } from "@/domain/shared/exception/domain.exception";
+
+export class InvalidVerificationCodeException extends DomainException {
   readonly errorCode = "INVALID_VERIFICATION_CODE";
 
   constructor() {

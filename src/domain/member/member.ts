@@ -8,6 +8,7 @@ import { randomUUID } from "crypto";
 import { Email, Password } from "./value-objects";
 import type { PasswordEncoder } from "./password-encoder";
 import { InvalidPasswordException } from "@/domain/member/exceptions";
+import { createDomainEvent, DomainEvent } from "@/domain/shared";
 
 export class Member {
   readonly id: string;
@@ -20,6 +21,8 @@ export class Member {
   readonly point: number;
   readonly isPro: boolean;
 
+  private readonly domainEvents: DomainEvent[] = [];
+
   private constructor(member: MemberType) {
     Object.assign(this, member);
   }
@@ -28,7 +31,7 @@ export class Member {
     registerRequest: RegisterMemberRequest,
     encoder: PasswordEncoder,
   ): Member {
-    return new Member({
+    const member: Member = new Member({
       ...registerRequest,
       id: randomUUID(),
       email: new Email(registerRequest.email),
@@ -36,10 +39,25 @@ export class Member {
       point: 0,
       isPro: false,
     });
+
+    member.domainEvents.push(
+      createDomainEvent(member.id, "MemberRegistered", {
+        memberId: member.id,
+        email: member.email.value,
+        password: member.password.value,
+        job: member.job,
+        nickname: member.nickname,
+        notification: member.notification,
+        frequency: member.frequency,
+        occurredAt: new Date(),
+      }),
+    );
+
+    return member;
   }
 
   public update(request: UpdateMemberRequest): Member {
-    return new Member({
+    const updatedMember: Member = new Member({
       ...this,
       id: this.id,
       email: this.email,
@@ -51,6 +69,19 @@ export class Member {
       point: this.point,
       isPro: this.isPro,
     });
+
+    updatedMember.domainEvents.push(
+      createDomainEvent(updatedMember.id, "MemberUpdated", {
+        memberId: updatedMember.id,
+        job: updatedMember.job,
+        nickname: updatedMember.nickname,
+        notification: updatedMember.notification,
+        frequency: updatedMember.frequency,
+        updatedAt: new Date(),
+      }),
+    );
+
+    return updatedMember;
   }
 
   public changePassword(
@@ -63,52 +94,62 @@ export class Member {
     }
 
     const password: Password = Password.create(newPassword, encoder);
-
-    return new Member({
+    const updatedMember: Member = new Member({
       ...this,
-      id: this.id,
-      email: this.email,
       password,
-      job: this.job,
-      nickname: this.nickname,
-      notification: this.notification,
-      frequency: this.frequency,
-      point: this.point,
-      isPro: this.isPro,
     });
+
+    updatedMember.domainEvents.push(
+      createDomainEvent(this.id, "MemberPasswordChanged", {
+        memberId: updatedMember.id,
+        changedAt: new Date(),
+      }),
+    );
+
+    return updatedMember;
   }
 
   public resetPassword(password: string, encoder: PasswordEncoder): Member {
     const newPassword: Password = Password.create(password, encoder);
-
-    return new Member({
-      id: this.id,
-      email: this.email,
+    const updatedMember: Member = new Member({
+      ...this,
       password: newPassword,
-      job: this.job,
-      nickname: this.nickname,
-      notification: this.notification,
-      frequency: this.frequency,
-      point: this.point,
-      isPro: this.isPro,
     });
+
+    updatedMember.domainEvents.push(
+      createDomainEvent(this.id, "MemberPasswordReset", {
+        memberId: updatedMember.id,
+        resetAt: new Date(),
+      }),
+    );
+
+    return updatedMember;
   }
 
   public changeEmail(newEmail: string): Member {
     const email: Email = new Email(newEmail);
-
-    return new Member({
+    const updatedMember: Member = new Member({
       ...this,
-      id: this.id,
       email,
-      password: this.password,
-      job: this.job,
-      nickname: this.nickname,
-      notification: this.notification,
-      frequency: this.frequency,
-      point: this.point,
-      isPro: this.isPro,
     });
+
+    updatedMember.domainEvents.push(
+      createDomainEvent(this.id, "MemberEmailChanged", {
+        memberId: updatedMember.id,
+        email: updatedMember.email.value,
+        changedAt: new Date(),
+      }),
+    );
+
+    return updatedMember;
+  }
+
+  public getDomainEvents(): ReadonlyArray<DomainEvent> {
+    return this.domainEvents;
+  }
+
+  public clearDomainEvents(): void {
+    this.domainEvents.length = 0;
   }
 
   // DB에서 기존 엔티티 복원 (이미 검증된 데이터)

@@ -1,19 +1,10 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService as NestJwtService } from "@nestjs/jwt";
-
-export interface JwtPayload {
-  sub: string;
-  email: string;
-}
-
-export interface TokenResponse {
-  accessToken: string;
-  expiresIn: number;
-}
+import { JwtPayload, JwtPort, JwtToken } from "@/application/oauth/ports";
 
 @Injectable()
-export class JwtService {
+export class JwtService implements JwtPort {
   private readonly accessTokenExpiresIn: number;
 
   constructor(
@@ -28,7 +19,7 @@ export class JwtService {
     this.accessTokenExpiresIn = this.pareExpiresIn(expiresIn);
   }
 
-  generateAccessToken(memberId: string, email: string): TokenResponse {
+  generateAccessToken(memberId: string, email: string): JwtToken {
     const payload: JwtPayload = {
       sub: memberId,
       email,
@@ -42,8 +33,12 @@ export class JwtService {
     };
   }
 
-  verify(token: string) {
-    return this.jwtService.verify<JwtPayload>(token);
+  verifyToken(token: string) {
+    try {
+      return this.jwtService.verify<JwtPayload>(token);
+    } catch (error) {
+      throw new UnauthorizedException(`토큰 정보가 잘못되었습니다: ${error}`);
+    }
   }
 
   private pareExpiresIn(expiresIn: string): number {

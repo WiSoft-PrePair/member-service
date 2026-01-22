@@ -1,16 +1,16 @@
-import { MemberReadEntity } from "@/adapter/member/persistence/read/entity/member-read.entity";
+import { MemberReadDto } from "@/application/member/ports/member-read.dto";
 
 export interface MemberReadRepository {
-  save(entity: MemberReadEntity): void;
+  save(entity: MemberReadDto): void;
 
-  findById(id: string): Promise<MemberReadEntity | null>;
+  findById(id: string): Promise<MemberReadDto | null>;
 
-  findByEmail(email: string): Promise<MemberReadEntity | null>;
+  findByEmail(email: string): Promise<MemberReadDto | null>;
 
   findAll(options?: {
     limit?: number;
     offset?: number;
-  }): Promise<MemberReadEntity[]>;
+  }): Promise<MemberReadDto[]>;
 
   withdraw(id: string): Promise<number>;
 }

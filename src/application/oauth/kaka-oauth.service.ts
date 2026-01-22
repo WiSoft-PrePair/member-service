@@ -4,13 +4,13 @@ import {
   Inject,
   Injectable,
 } from "@nestjs/common";
-import { KakaoOauthService } from "@/adapter/oauth/kakao/kakao-oauth.service";
 import { JwtService } from "@/adapter/auth/security";
 import { RefreshTokenService } from "@/application/auth";
 import {
   FrequencyEnum,
   Member,
   MEMBER_REPOSITORY,
+  MemberLoginEvent,
   type MemberRepository,
   NotificationEnum,
 } from "@/domain/member";
@@ -19,26 +19,29 @@ import {
   OAuthConnection,
   type OauthRepository,
 } from "@/domain/oauth";
-import {
-  MEMBER_READ_REPOSITORY,
-  type MemberReadRepository,
-} from "@/application/member/ports";
 import { EntityManager } from "@mikro-orm/postgresql";
 import {
-  KakaoUserInfo,
-  KakaoUserProfile,
-} from "@/adapter/oauth/kakao/types/kakao-oauth.types";
-import { OAuthRegistrationTokenService } from "@/application/oauth/oauth-registration-token.service";
-import { CommandBus } from "@nestjs/cqrs";
+  OAuthRegistrationTokenService,
+  RegistrationTokenData,
+} from "@/application/oauth/oauth-registration-token.service";
+import { CommandBus, EventBus } from "@nestjs/cqrs";
 import {
   OAuthMemberRegisterCommand,
   OAuthMemberRegisterCommandResult,
 } from "@/application/oauth/command/oauth-member-register.command";
+import {
+  KAKAO_OAUTH_PROVIDER,
+  type OAuthProvider,
+  OAuthTokenResponse,
+  OAuthUserInfo,
+} from "@/application/oauth/ports/oauth-provider.port";
+import { JwtToken } from "@/application/oauth/ports";
 
 @Injectable()
-export class KakaoAuthService {
+export class KakaOauthService {
   constructor(
-    private readonly kakaoOAuthService: KakaoOauthService,
+    @Inject(KAKAO_OAUTH_PROVIDER)
+    private readonly oauthProvider: OAuthProvider,
     private readonly jwtService: JwtService,
     private readonly refreshTokenService: RefreshTokenService,
     private readonly registrationTokenService: OAuthRegistrationTokenService,
@@ -47,28 +50,26 @@ export class KakaoAuthService {
     private readonly memberRepository: MemberRepository,
     @Inject(OAUTH_REPOSITORY)
     private readonly oauthConnectionRepository: OauthRepository,
-    @Inject(MEMBER_READ_REPOSITORY)
-    private readonly memberReadRepository: MemberReadRepository,
     private readonly em: EntityManager,
+    private readonly eventBus: EventBus,
   ) {}
 
   async handleCallback(code: string) {
-    const kakaoTokens =
-      await this.kakaoOAuthService.exchangeCodeForAccessToken(code);
+    // ✅ Port 인터페이스 사용
+    const tokens: OAuthTokenResponse =
+      await this.oauthProvider.exchangeCodeForAccessToken(code);
 
-    // eslint-disable-next-line
-    const kakaoUser = await this.kakaoOAuthService.getUserInfo(
-      kakaoTokens.access_token,
+    const userInfo: OAuthUserInfo = await this.oauthProvider.getUserInfo(
+      tokens.accessToken,
     );
 
-    const { kakaoId, email, nickname } =
-      this.extractKakaoUserProfile(kakaoUser);
+    const { providerId, email, nickname } = userInfo;
 
     // Case 1: 기존 OAuth 연결이 있는 경우 → 로그인
-    const existingConnection =
+    const existingConnection: OAuthConnection | null =
       await this.oauthConnectionRepository.findByProviderAndProviderId(
         "kakao",
-        kakaoId,
+        providerId,
       );
 
     if (existingConnection) {
@@ -76,20 +77,26 @@ export class KakaoAuthService {
     }
 
     // Case 2: 동일 이메일로 가입된 일반 회원이 있는 경우 → OAuth 연결 후 로그인
-    const existingMember = await this.memberRepository.findByEmail(email);
+    const existingMember: Member | null =
+      await this.memberRepository.findByEmail(email);
 
     if (existingMember) {
-      await this.connectOAuthToExistingMember(existingMember, kakaoId, email);
+      await this.connectOAuthToExistingMember(
+        existingMember,
+        providerId,
+        email,
+      );
+
       return this.loginExistingMember(existingMember.id);
     }
 
     // Case 3: 신규 회원 → 등록 토큰 발급 (회원가입 미완료 상태)
-    const registrationToken =
+    const registrationToken: string =
       this.registrationTokenService.generateRegistrationToken({
         email,
         nickname,
         provider: "kakao",
-        providerId: kakaoId,
+        providerId,
       });
 
     return {
@@ -113,49 +120,53 @@ export class KakaoAuthService {
     frequency: FrequencyEnum,
   ) {
     // 1. 등록 토큰 검증 및 OAuth 정보 추출
-    const oauthData =
+    const oauthData: RegistrationTokenData =
       this.registrationTokenService.verifyRegistrationToken(registrationToken);
 
     // 2. 중복 가입 체크 (등록 토큰 발급 후 다른 경로로 가입한 경우)
-    const existingMember = await this.memberRepository.findByEmail(
-      oauthData.email,
-    );
+    const existingMember: Member | null =
+      await this.memberRepository.findByEmail(oauthData.email);
+
     if (existingMember) {
       throw new ConflictException("이미 가입된 이메일입니다.");
     }
 
-    const existingConnection =
+    const existingConnection: OAuthConnection | null =
       await this.oauthConnectionRepository.findByProviderAndProviderId(
         oauthData.provider,
         oauthData.providerId,
       );
+
     if (existingConnection) {
       throw new ConflictException("이미 연결된 카카오 계정입니다.");
     }
 
     // 3. CommandBus를 통해 회원가입 완료 (CQRS 플로우)
-    const result = await this.commandBus.execute<
-      OAuthMemberRegisterCommand,
-      OAuthMemberRegisterCommandResult
-    >(
-      new OAuthMemberRegisterCommand(
-        oauthData.email,
-        oauthData.nickname,
-        oauthData.provider,
-        oauthData.providerId,
-        job,
-        notification,
-        frequency,
-      ),
-    );
+    const result: OAuthMemberRegisterCommandResult =
+      await this.commandBus.execute<
+        OAuthMemberRegisterCommand,
+        OAuthMemberRegisterCommandResult
+      >(
+        new OAuthMemberRegisterCommand(
+          oauthData.email,
+          oauthData.nickname,
+          oauthData.provider,
+          oauthData.providerId,
+          job,
+          notification,
+          frequency,
+        ),
+      );
 
     // 4. Access Token 발급
-    const accessToken = this.jwtService.generateAccessToken(
+    const accessToken: JwtToken = this.jwtService.generateAccessToken(
       result.memberId,
       result.member.email.value,
     );
 
-    const refreshToken = await this.refreshTokenService.create(result.memberId);
+    const refreshToken: string = await this.refreshTokenService.create(
+      result.memberId,
+    );
 
     await this.em.flush();
 
@@ -173,7 +184,8 @@ export class KakaoAuthService {
    * 기존 회원 로그인 처리
    */
   private async loginExistingMember(memberId: string) {
-    const member = await this.memberRepository.findById(memberId);
+    const member: Member | null =
+      await this.memberRepository.findById(memberId);
 
     if (!member) {
       throw new BadRequestException(
@@ -181,14 +193,16 @@ export class KakaoAuthService {
       );
     }
 
-    await this.updateActivityLog(memberId);
+    this.eventBus.publish(new MemberLoginEvent(memberId));
 
-    const accessToken = this.jwtService.generateAccessToken(
+    const accessToken: JwtToken = this.jwtService.generateAccessToken(
       member.id,
       member.email.value,
     );
 
-    const refreshToken = await this.refreshTokenService.create(member.id);
+    const refreshToken: string = await this.refreshTokenService.create(
+      member.id,
+    );
 
     await this.em.flush();
 
@@ -210,7 +224,7 @@ export class KakaoAuthService {
     providerId: string,
     email: string,
   ) {
-    const connection = OAuthConnection.connect({
+    const connection: OAuthConnection = OAuthConnection.connect({
       memberId: member.id,
       provider: "kakao",
       providerId,
@@ -218,44 +232,5 @@ export class KakaoAuthService {
     });
 
     this.oauthConnectionRepository.save(connection);
-  }
-
-  /**
-   * 카카오 사용자 정보 추출
-   */
-  private extractKakaoUserProfile(kakaoUser: KakaoUserInfo): KakaoUserProfile {
-    const kakaoId = String(kakaoUser.id);
-    const email = kakaoUser.kakao_account?.email;
-    const nickname = kakaoUser.kakao_account?.profile?.nickname;
-
-    if (!email) {
-      throw new BadRequestException(
-        '이메일 정보가 필요합니다. 카카오 동의항목에서 "카카오계정(이메일)"을 필수 동의로 설정해주세요.',
-      );
-    }
-
-    if (!nickname) {
-      throw new BadRequestException(
-        '닉네임 정보가 필요합니다. 카카오 동의항목에서 "닉네임"을 필수 동의로 설정해주세요.',
-      );
-    }
-
-    return { kakaoId, email, nickname };
-  }
-
-  /**
-   * 활동 기록 업데이트
-   */
-  private async updateActivityLog(memberId: string): Promise<void> {
-    const readEntity = await this.memberReadRepository.findById(memberId);
-
-    if (readEntity) {
-      const today = new Date().toISOString().slice(0, 10);
-      readEntity.activity = readEntity.activity ?? [];
-
-      if (!readEntity.activity.includes(today)) {
-        readEntity.activity.push(today);
-      }
-    }
   }
 }

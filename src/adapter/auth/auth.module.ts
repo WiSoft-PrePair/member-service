@@ -10,6 +10,7 @@ import { MikroOrmModule } from "@mikro-orm/nestjs";
 import { AuthController } from "@/adapter/auth/api/auth.controller";
 import { AuthService, RefreshTokenService } from "@/application/auth";
 import { JwtService, JwtStrategy } from "@/adapter/auth/security";
+import { JWT_SERVICE } from "@/application/oauth/ports";
 
 @Module({
   imports: [
@@ -40,6 +41,10 @@ import { JwtService, JwtStrategy } from "@/adapter/auth/security";
     {
       provide: REFRESH_TOKEN_REPOSITORY,
       useClass: RefreshTokenRepositoryImpl,
+    },
+    {
+      provide: JWT_SERVICE,
+      useClass: JwtService,
     },
   ],
   exports: [JwtService, RefreshTokenService],

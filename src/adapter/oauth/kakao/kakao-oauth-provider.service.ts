@@ -1,9 +1,17 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { KakaoTokenResponse } from "@/adapter/oauth/kakao/types/kakao-oauth.types";
+import {
+  KakaoTokenResponse,
+  KakaoUserInfo,
+} from "@/adapter/oauth/kakao/types/kakao-oauth.types";
+import {
+  OAuthProvider,
+  OAuthTokenResponse,
+  OAuthUserInfo,
+} from "@/application/oauth/ports/oauth-provider.port";
 
 @Injectable()
-export class KakaoOauthService {
+export class KakaoOAuthProvider implements OAuthProvider {
   private readonly clientId: string;
   private readonly clientSecret: string;
   private readonly redirectUri: string;
@@ -14,7 +22,7 @@ export class KakaoOauthService {
     this.redirectUri = configService.getOrThrow<string>("KAKAO_REDIRECT_URI");
   }
 
-  async exchangeCodeForAccessToken(code: string): Promise<KakaoTokenResponse> {
+  async exchangeCodeForAccessToken(code: string): Promise<OAuthTokenResponse> {
     const tokenUrl = "https://kauth.kakao.com/oauth/token";
 
     const params = new URLSearchParams({
@@ -34,17 +42,25 @@ export class KakaoOauthService {
     });
 
     if (!response.ok) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const error = await response.json();
+      const error = (await response.json()) as {
+        error: string;
+        error_description: string;
+      };
       throw new UnauthorizedException(
         `카카오 토큰 교환 실패: ${error.error_description}, ${error.error}`,
       );
     }
 
-    return response.json();
+    const kakaoTokens = (await response.json()) as KakaoTokenResponse;
+
+    return {
+      accessToken: kakaoTokens.access_token,
+      refreshToken: kakaoTokens.refresh_token,
+      expiresIn: kakaoTokens.expires_in,
+    };
   }
 
-  async getUserInfo(accessToken: string) {
+  async getUserInfo(accessToken: string): Promise<OAuthUserInfo> {
     const response = await fetch("https://kapi.kakao.com/v2/user/me", {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -56,7 +72,24 @@ export class KakaoOauthService {
       throw new UnauthorizedException("카카오 사용자 정보 조회 실패");
     }
 
-    return response.json();
+    const kakaoUser: KakaoUserInfo = (await response.json()) as KakaoUserInfo;
+
+    const email: string | undefined = kakaoUser.kakao_account?.email;
+    const nickname: string | undefined =
+      kakaoUser.kakao_account?.profile?.nickname;
+
+    if (!email || !nickname) {
+      throw new UnauthorizedException(
+        "카카오 로그인에 필요한 정보(이메일, 닉네임) 동의가 필요합니다.",
+      );
+    }
+
+    return {
+      providerId: String(kakaoUser.id),
+      email,
+      nickname,
+      profileImageUrl: kakaoUser.kakao_account?.profile?.profile_image_url,
+    };
   }
 
   async unlink(accessToken: string): Promise<void> {
