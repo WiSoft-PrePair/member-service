@@ -3,14 +3,13 @@ import { randomBytes } from "node:crypto";
 import { randomUUID } from "crypto";
 import {
   REFRESH_TOKEN_REPOSITORY,
+  RefreshTokenDto,
   type RefreshTokenRepository,
 } from "@/application/auth/ports";
 import { RefreshTokenEntity } from "@/adapter/auth/persistence/entity/refresh-token.entity";
 
 @Injectable()
 export class RefreshTokenService {
-  private readonly REFRESH_TOKEN_EXPIRES_IN: number = 7 * 24 * 60 * 60 * 1000;
-
   constructor(
     @Inject(REFRESH_TOKEN_REPOSITORY)
     private readonly refreshTokenRepository: RefreshTokenRepository,
@@ -18,17 +17,16 @@ export class RefreshTokenService {
 
   async create(memberId: string): Promise<string> {
     const token: string = randomBytes(64).toString("hex");
-    const expiresAt: Date = new Date(
-      Date.now() + this.REFRESH_TOKEN_EXPIRES_IN,
-    );
 
-    await this.refreshTokenRepository.save({
+    const dto = new RefreshTokenDto({
       id: randomUUID(),
       memberId,
       token,
-      expiresAt,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       createdAt: new Date(),
     });
+
+    await this.refreshTokenRepository.save(dto);
 
     return token;
   }
