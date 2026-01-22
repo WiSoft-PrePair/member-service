@@ -11,7 +11,7 @@ import {
   MEMBER_READ_REPOSITORY,
   type MemberReadRepository,
 } from "@/application/member/ports";
-import { JwtService, TokenResponse } from "@/adapter/auth/security";
+import { JwtService } from "@/adapter/auth/security";
 import { AuthService, RefreshTokenService } from "@/application/auth";
 import {
   LoginRequestDto,
@@ -21,6 +21,7 @@ import {
 import { CurrentUser } from "@/adapter/shared/api/decorators/current-user.decorator";
 import { type User } from "@/adapter/shared/api/types/user";
 import { Public } from "@/adapter/shared/api/decorators/public.decorator";
+import { JwtToken } from "@/application/oauth/ports";
 
 @Controller("api/auth")
 export class AuthController {
@@ -38,7 +39,7 @@ export class AuthController {
     const loginResult: { memberId: string; email: string } =
       await this.authService.login(loginRequestDto);
 
-    const accessToken: TokenResponse = this.jwtService.generateAccessToken(
+    const accessToken: JwtToken = this.jwtService.generateAccessToken(
       loginResult.memberId,
       loginResult.email,
     );

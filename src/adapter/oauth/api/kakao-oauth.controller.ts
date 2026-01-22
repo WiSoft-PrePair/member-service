@@ -4,13 +4,13 @@ import { Public } from "@/adapter/shared/api/decorators/public.decorator";
 import {
   OauthCallbackDto,
   OauthCompleteRegisterDto,
-} from "@/adapter/oauth/api/dto";
-import { KakaoAuthService } from "@/application/oauth/kakao-auth.service";
+}                           from "@/adapter/oauth/api/dto";
+import { KakaOauthService } from "@/application/oauth/kaka-oauth.service";
 
 @Controller("api/auth/kakao")
 export class KakaoOauthController {
   constructor(
-    private readonly kakaoAuthService: KakaoAuthService,
+    private readonly kakaoAuthService: KakaOauthService,
     private readonly configService: ConfigService,
   ) {}
 

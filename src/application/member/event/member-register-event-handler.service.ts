@@ -1,5 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { EventsHandler, IEventHandler } from "@nestjs/cqrs";
+import { UniqueConstraintViolationException } from "@mikro-orm/core";
 import { MemberRegisterEvent } from "@/domain/member/events";
 import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
 import {
@@ -20,7 +21,6 @@ export class MemberRegisterEventHandler
     private readonly logger: ILogger,
   ) {}
 
-  // eslint-disable-next-line
   async handle(event: MemberRegisterEvent): Promise<void> {
     this.logger.log("Member register event handling started", {
       module: "MemberRegisterEventHandler",
@@ -29,6 +29,16 @@ export class MemberRegisterEventHandler
     });
 
     try {
+      // 멱등성 보장: 이미 존재하는 경우 스킵
+      const existing = await this.memberReadRepository.findById(event.memberId);
+      if (existing) {
+        this.logger.warn("Member read entity already exists, skipping", {
+          module: "MemberRegisterEventHandler",
+          memberId: event.memberId,
+        });
+        return;
+      }
+
       const dto = new MemberReadDto({
         id: event.memberId,
         email: event.email,
@@ -49,6 +59,15 @@ export class MemberRegisterEventHandler
         memberId: event.memberId,
       });
     } catch (error) {
+      // Race condition으로 인한 중복 INSERT는 무시 (멱등성 보장)
+      if (error instanceof UniqueConstraintViolationException) {
+        this.logger.warn("Member read entity already exists (race condition), skipping", {
+          module: "MemberRegisterEventHandler",
+          memberId: event.memberId,
+        });
+        return;
+      }
+
       this.logger.error(
         "Member register event handling failed",
         error instanceof Error ? error : undefined,

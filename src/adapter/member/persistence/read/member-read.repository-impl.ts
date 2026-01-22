@@ -13,7 +13,8 @@ export class MemberReadRepositoryImpl implements MemberReadRepository {
   save(dto: MemberReadDto): void {
     const entity: MemberReadEntity = this.toEntity(dto);
 
-    this.em.persist(entity);
+    // persist 대신 merge 사용: INSERT/UPDATE 자동 판단
+    this.em.merge(entity);
   }
 
   async findById(id: string): Promise<MemberReadDto | null> {
