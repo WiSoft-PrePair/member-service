@@ -26,10 +26,9 @@ export class MemberWithdrawCommand implements ICommand {
 
 @Injectable()
 @CommandHandler(MemberWithdrawCommand)
-export class WithdrawMemberCommandHandler implements ICommandHandler<
-  MemberWithdrawCommand,
-  string
-> {
+export class WithdrawMemberCommandHandler
+  implements ICommandHandler<MemberWithdrawCommand, string>
+{
   constructor(
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepository: MemberRepository,

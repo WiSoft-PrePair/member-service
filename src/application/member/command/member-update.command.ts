@@ -29,10 +29,9 @@ export class MemberUpdateCommand implements ICommand {
 
 @Injectable()
 @CommandHandler(MemberUpdateCommand)
-export class MemberUpdateCommandHandler implements ICommandHandler<
-  MemberUpdateCommand,
-  string
-> {
+export class MemberUpdateCommandHandler
+  implements ICommandHandler<MemberUpdateCommand, string>
+{
   constructor(
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepository: MemberRepository,
@@ -68,7 +67,7 @@ export class MemberUpdateCommandHandler implements ICommandHandler<
       frequency: command.frequency ?? existingMember.frequency,
     });
 
-    this.memberRepository.update(updatedMember);
+    await this.memberRepository.update(updatedMember);
 
     for (const event of updatedMember.getDomainEvents()) {
       this.eventStore.append(event);

@@ -9,6 +9,11 @@ export interface OauthRepository {
     providerId: string,
   ): Promise<OAuthConnection | null>;
 
+  findByMemberIdAndProvider(
+    memberId: string,
+    provider: OAuthProvider,
+  ): Promise<OAuthConnection | null>;
+
   findByMemberId(memberId: string): Promise<OAuthConnection[]>;
 
   disconnect(id: string): Promise<void>;

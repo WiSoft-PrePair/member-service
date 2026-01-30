@@ -33,10 +33,9 @@ export class MemberRegisterCommand implements ICommand {
 
 @Injectable()
 @CommandHandler(MemberRegisterCommand)
-export class MemberRegisterCommandHandler implements ICommandHandler<
-  MemberRegisterCommand,
-  string
-> {
+export class MemberRegisterCommandHandler
+  implements ICommandHandler<MemberRegisterCommand, string>
+{
   constructor(
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepository: MemberRepository,

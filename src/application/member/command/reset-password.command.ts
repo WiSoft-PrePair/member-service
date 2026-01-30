@@ -34,7 +34,9 @@ export class ResetPasswordCommand implements ICommand {
 
 @Injectable()
 @CommandHandler(ResetPasswordCommand)
-export class ResetPasswordCommandHandler implements ICommandHandler<ResetPasswordCommand> {
+export class ResetPasswordCommandHandler
+  implements ICommandHandler<ResetPasswordCommand>
+{
   constructor(
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepository: MemberRepository,
