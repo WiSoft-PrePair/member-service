@@ -27,9 +27,10 @@ export class ChangeEmailCommand implements ICommand {
 
 @Injectable()
 @CommandHandler(ChangeEmailCommand)
-export class VerifyChangeEmailCommandHandler
-  implements ICommandHandler<ChangeEmailCommand, string>
-{
+export class VerifyChangeEmailCommandHandler implements ICommandHandler<
+  ChangeEmailCommand,
+  string
+> {
   constructor(
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepository: MemberRepository,

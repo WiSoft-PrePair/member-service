@@ -2,20 +2,14 @@ import { Inject, Injectable } from "@nestjs/common";
 import { EventsHandler, IEventHandler } from "@nestjs/cqrs";
 import { MemberEmailChangedEvent } from "@/domain/member";
 import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
-import {
-  MEMBER_READ_REPOSITORY,
-  MemberReadDto,
-  type MemberReadRepository,
-} from "@/application/member/ports";
+import { MemberReadEntity } from "@/adapter/member/persistence/read";
+import { EntityManager } from "@mikro-orm/postgresql";
 
 @Injectable()
 @EventsHandler(MemberEmailChangedEvent)
-export class MemberEmailChangedEventHandler
-  implements IEventHandler<MemberEmailChangedEvent>
-{
+export class MemberEmailChangedEventHandler implements IEventHandler<MemberEmailChangedEvent> {
   constructor(
-    @Inject(MEMBER_READ_REPOSITORY)
-    private readonly memberReadRepository: MemberReadRepository,
+    private readonly em: EntityManager,
     @Inject(LOGGER)
     private readonly logger: ILogger,
   ) {}
@@ -27,28 +21,41 @@ export class MemberEmailChangedEventHandler
       newEmail: event.newEmail,
     });
 
-    const entity: MemberReadDto | null =
-      await this.memberReadRepository.findById(event.memberId);
+    try {
+      const em: EntityManager = this.em.fork();
 
-    if (!entity) {
-      this.logger.warn("Member read entity not found", {
+      const entity: MemberReadEntity | null = await em.findOne(
+        MemberReadEntity,
+        { id: event.memberId },
+      );
+
+      if (!entity) {
+        this.logger.warn("Member read entity not found", {
+          module: "MemberEmailChangedEventHandler",
+          memberId: event.memberId,
+        });
+        return;
+      }
+
+      entity.email = event.newEmail;
+      entity.updatedAt = event.occurredAt;
+
+      await em.flush();
+
+      this.logger.log("Email change event handling completed", {
         module: "MemberEmailChangedEventHandler",
         memberId: event.memberId,
       });
-      return;
+    } catch (error) {
+      this.logger.error(
+        "Email change event handling failed",
+        error instanceof Error ? error : undefined,
+        {
+          module: "MemberEmailChangedEventHandler",
+          memberId: event.memberId,
+        },
+      );
+      throw error;
     }
-
-    const updatedDto = new MemberReadDto({
-      ...entity, // 기존 값 복사
-      email: event.newEmail, // 이메일만 변경
-      updatedAt: event.occurredAt,
-    });
-
-    this.memberReadRepository.save(updatedDto);
-
-    this.logger.log("Email change event handling completed", {
-      module: "MemberEmailChangedEventHandler",
-      memberId: event.memberId,
-    });
   }
 }

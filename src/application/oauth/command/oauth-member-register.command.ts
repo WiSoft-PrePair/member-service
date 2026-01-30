@@ -49,13 +49,10 @@ export interface OAuthMemberRegisterCommandResult {
 
 @Injectable()
 @CommandHandler(OAuthMemberRegisterCommand)
-export class OAuthMemberRegisterCommandHandler
-  implements
-    ICommandHandler<
-      OAuthMemberRegisterCommand,
-      OAuthMemberRegisterCommandResult
-    >
-{
+export class OAuthMemberRegisterCommandHandler implements ICommandHandler<
+  OAuthMemberRegisterCommand,
+  OAuthMemberRegisterCommandResult
+> {
   constructor(
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepository: MemberRepository,

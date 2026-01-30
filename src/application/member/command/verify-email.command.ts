@@ -13,9 +13,10 @@ export class VerifyEmailCommand implements ICommand {
 
 @Injectable()
 @CommandHandler(VerifyEmailCommand)
-export class VerifyEmailCommandHandler
-  implements ICommandHandler<VerifyEmailCommand, { verified: boolean }>
-{
+export class VerifyEmailCommandHandler implements ICommandHandler<
+  VerifyEmailCommand,
+  { verified: boolean }
+> {
   constructor(
     private readonly emailVerificationService: EmailVerificationService,
     @Inject(LOGGER)

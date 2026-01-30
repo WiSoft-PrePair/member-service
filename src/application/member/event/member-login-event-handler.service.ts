@@ -1,20 +1,15 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { EventsHandler, IEventHandler } from "@nestjs/cqrs";
 import { MemberLoginEvent } from "@/domain/member";
-import {
-  MEMBER_READ_REPOSITORY,
-  type MemberReadRepository,
-} from "@/application/member/ports";
 import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
+import { MemberReadEntity } from "@/adapter/member/persistence/read";
+import { EntityManager } from "@mikro-orm/postgresql";
 
 @Injectable()
 @EventsHandler(MemberLoginEvent)
-export class MemberLoginEventHandler
-  implements IEventHandler<MemberLoginEvent>
-{
+export class MemberLoginEventHandler implements IEventHandler<MemberLoginEvent> {
   constructor(
-    @Inject(MEMBER_READ_REPOSITORY)
-    private readonly memberReadRepository: MemberReadRepository,
+    private readonly em: EntityManager,
     @Inject(LOGGER)
     private readonly logger: ILogger,
   ) {}
@@ -25,25 +20,45 @@ export class MemberLoginEventHandler
       memberId: event.memberId,
     });
 
-    const entity = await this.memberReadRepository.findById(event.memberId);
+    try {
+      const em: EntityManager = this.em.fork();
 
-    if (entity) {
+      const entity: MemberReadEntity | null = await em.findOne(
+        MemberReadEntity,
+        { id: event.memberId },
+      );
+
+      if (!entity) {
+        this.logger.warn("Member read entity not found", {
+          module: "MemberLoginEventHandler",
+          memberId: event.memberId,
+        });
+        return;
+      }
+
       const today: string = event.loginAt.toISOString().slice(0, 10);
       const activity: string[] = entity.activity ?? [];
 
       if (!activity.includes(today)) {
-        activity.push(today);
+        entity.activity = [...activity, today];
 
-        this.memberReadRepository.save({
-          ...entity,
-          activity,
-        });
+        await em.flush();
 
-        this.logger.log("Member logged in event handling completed", {
-          module: "MemberLoggedInEventHandler",
+        this.logger.log("Member login event handling completed", {
+          module: "MemberLoginEventHandler",
           memberId: event.memberId,
         });
       }
+    } catch (error) {
+      this.logger.error(
+        "Member login event handling failed",
+        error instanceof Error ? error : undefined,
+        {
+          module: "MemberLoginEventHandler",
+          memberId: event.memberId,
+        },
+      );
+      throw error;
     }
   }
 }
