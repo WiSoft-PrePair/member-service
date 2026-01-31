@@ -10,25 +10,25 @@ export class MemberRepositoryImpl implements MemberRepository {
     private readonly em: EntityManager,
     private readonly mapper: MemberMapper,
   ) {}
-  register(member: Member): Member {
+  async register(member: Member): Promise<Member> {
     const entity: MemberEntity = this.mapper.toEntity(member);
 
-    this.em.persist(entity);
+    await this.em.persist(entity);
 
     return member;
   }
 
-  withdraw(memberId: string): void {
-    this.em.nativeDelete(MemberEntity, { id: memberId });
+  async withdraw(memberId: string): Promise<void> {
+    await this.em.nativeDelete(MemberEntity, { id: memberId });
   }
 
-  update(member: Member): Member {
+  async update(member: Member): Promise<Member> {
     const reference: MemberEntity = this.em.getReference(
       MemberEntity,
       member.id,
     );
 
-    this.em.assign(reference, this.mapper.toEntity(member));
+    await this.em.assign(reference, this.mapper.toEntity(member));
 
     return member;
   }

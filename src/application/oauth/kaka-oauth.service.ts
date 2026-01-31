@@ -36,6 +36,7 @@ import {
   OAuthUserInfo,
 } from "@/application/oauth/ports/oauth-provider.port";
 import { JwtToken } from "@/application/oauth/ports";
+import { MemberUpdateCommand } from "@/application/member/command/member-update.command";
 
 @Injectable()
 export class KakaOauthService {
@@ -216,7 +217,86 @@ export class KakaOauthService {
   }
 
   /**
-   * 기존 회원에 OAuth 연결
+   * [명시적 연동] 로그인된 회원이 카카오 계정을 연동
+   */
+  async linkToExistingMember(memberId: string, code: string) {
+    const tokens: OAuthTokenResponse =
+      await this.oauthProvider.exchangeCodeForAccessToken(code);
+
+    const userInfo: OAuthUserInfo = await this.oauthProvider.getUserInfo(
+      tokens.accessToken,
+    );
+
+    // 해당 카카오 계정이 이미 다른 회원에게 연결되어 있는지 확인
+    const existingConnection: OAuthConnection | null =
+      await this.oauthConnectionRepository.findByProviderAndProviderId(
+        "kakao",
+        userInfo.providerId,
+      );
+
+    if (existingConnection) {
+      if (existingConnection.memberId === memberId) {
+        throw new ConflictException("이미 연결된 카카오 계정입니다.");
+      }
+      throw new ConflictException(
+        "해당 카카오 계정은 다른 회원에게 연결되어 있습니다.",
+      );
+    }
+
+    // 이 회원에 이미 카카오 연동이 있는지 확인
+    const memberConnection: OAuthConnection | null =
+      await this.oauthConnectionRepository.findByMemberIdAndProvider(
+        memberId,
+        "kakao",
+      );
+
+    if (memberConnection) {
+      throw new ConflictException("이미 카카오 계정이 연동되어 있습니다.");
+    }
+
+    const connection: OAuthConnection = OAuthConnection.connect({
+      memberId,
+      provider: "kakao",
+      providerId: userInfo.providerId,
+      email: userInfo.email,
+    });
+
+    this.oauthConnectionRepository.save(connection);
+    await this.em.flush();
+
+    // notification을 BOTH로 변경 (이메일 + 카카오 알림)
+    await this.commandBus.execute(
+      new MemberUpdateCommand(
+        memberId,
+        undefined,
+        undefined,
+        NotificationEnum.BOTH,
+      ),
+    );
+
+    // 기존 세션 유지를 위해 새 accessToken 발급
+    const member: Member | null =
+      await this.memberRepository.findById(memberId);
+
+    if (!member) {
+      throw new BadRequestException("회원 정보를 찾을 수 없습니다.");
+    }
+
+    const accessToken: JwtToken = this.jwtService.generateAccessToken(
+      member.id,
+      member.email.value,
+    );
+
+    return {
+      linked: true,
+      provider: "kakao",
+      accessToken: accessToken.accessToken,
+      accessTokenExpiresIn: accessToken.expiresIn,
+    };
+  }
+
+  /**
+   * 기존 회원에 OAuth 연결 (카카오 로그인 시 동일 이메일 자동 연동)
    */
   // eslint-disable-next-line
   private async connectOAuthToExistingMember(

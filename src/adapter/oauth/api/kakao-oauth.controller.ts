@@ -6,6 +6,8 @@ import {
   OauthCompleteRegisterDto,
 } from "@/adapter/oauth/api/dto";
 import { KakaOauthService } from "@/application/oauth/kaka-oauth.service";
+import { CurrentUser } from "@/adapter/shared/api/decorators/current-user.decorator";
+import type { User } from "@/adapter/shared/api/types/user";
 
 @Controller("api/auth/kakao")
 export class KakaoOauthController {
@@ -57,5 +59,11 @@ export class KakaoOauthController {
       dto.notification,
       dto.frequency,
     );
+  }
+
+  // 로그인된 회원이 카카오 계정 연동
+  @Post("link")
+  async link(@CurrentUser() user: User, @Body() dto: OauthCallbackDto) {
+    return this.kakaoAuthService.linkToExistingMember(user.memberId, dto.code);
   }
 }

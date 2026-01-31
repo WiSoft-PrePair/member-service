@@ -3,11 +3,8 @@ import { EventsHandler, IEventHandler } from "@nestjs/cqrs";
 import { UniqueConstraintViolationException } from "@mikro-orm/core";
 import { MemberRegisterEvent } from "@/domain/member/events";
 import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
-import {
-  MEMBER_READ_REPOSITORY,
-  MemberReadDto,
-  type MemberReadRepository,
-} from "@/application/member/ports";
+import { MemberReadEntity } from "@/adapter/member/persistence/read";
+import { EntityManager } from "@mikro-orm/postgresql";
 
 @Injectable()
 @EventsHandler(MemberRegisterEvent)
@@ -15,8 +12,7 @@ export class MemberRegisterEventHandler
   implements IEventHandler<MemberRegisterEvent>
 {
   constructor(
-    @Inject(MEMBER_READ_REPOSITORY)
-    private readonly memberReadRepository: MemberReadRepository,
+    private readonly em: EntityManager,
     @Inject(LOGGER)
     private readonly logger: ILogger,
   ) {}
@@ -29,8 +25,16 @@ export class MemberRegisterEventHandler
     });
 
     try {
+      const em: EntityManager = this.em.fork();
+
       // 멱등성 보장: 이미 존재하는 경우 스킵
-      const existing = await this.memberReadRepository.findById(event.memberId);
+      const existing: MemberReadEntity | null = await em.findOne(
+        MemberReadEntity,
+        {
+          id: event.memberId,
+        },
+      );
+
       if (existing) {
         this.logger.warn("Member read entity already exists, skipping", {
           module: "MemberRegisterEventHandler",
@@ -39,20 +43,20 @@ export class MemberRegisterEventHandler
         return;
       }
 
-      const dto = new MemberReadDto({
-        id: event.memberId,
-        email: event.email,
-        job: event.job,
-        nickname: event.nickname,
-        notification: event.notification,
-        frequency: event.frequency,
-        point: 0,
-        isPro: false,
-        createdAt: event.occurredAt,
-        updatedAt: event.occurredAt,
-      });
+      const entity = new MemberReadEntity();
+      entity.id = event.memberId;
+      entity.email = event.email;
+      entity.job = event.job;
+      entity.nickname = event.nickname;
+      entity.notification = event.notification;
+      entity.frequency = event.frequency;
+      entity.point = 0;
+      entity.isPro = false;
+      entity.createdAt = event.occurredAt;
+      entity.updatedAt = event.occurredAt;
 
-      this.memberReadRepository.save(dto);
+      em.persist(entity);
+      await em.flush();
 
       this.logger.log("Member register event handling completed", {
         module: "MemberRegisterEventHandler",

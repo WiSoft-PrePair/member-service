@@ -67,7 +67,7 @@ export class MemberUpdateCommandHandler
       frequency: command.frequency ?? existingMember.frequency,
     });
 
-    this.memberRepository.update(updatedMember);
+    await this.memberRepository.update(updatedMember);
 
     for (const event of updatedMember.getDomainEvents()) {
       this.eventStore.append(event);

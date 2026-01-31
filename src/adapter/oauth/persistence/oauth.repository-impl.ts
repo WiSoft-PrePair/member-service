@@ -42,6 +42,22 @@ export class OAuthConnectionRepositoryImpl implements OauthRepository {
     return this.mapper.toDomain(entity);
   }
 
+  async findByMemberIdAndProvider(
+    memberId: string,
+    provider: OAuthProvider,
+  ): Promise<OAuthConnection | null> {
+    const entity: OAuthConnectionEntity | null = await this.em.findOne(
+      OAuthConnectionEntity,
+      { memberId, provider },
+    );
+
+    if (!entity) {
+      return null;
+    }
+
+    return this.mapper.toDomain(entity);
+  }
+
   async findByMemberId(memberId: string): Promise<OAuthConnection[]> {
     const entities: OAuthConnectionEntity[] = await this.em.find(
       OAuthConnectionEntity,
