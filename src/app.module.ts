@@ -11,6 +11,7 @@ import { JwtAuthGuard } from "@/adapter/auth/security";
 import { OAuthModule } from "@/adapter/oauth/oauth.module";
 import { LoggerModule } from "@/adapter/shared/logger/logger.module";
 import { CorrelationIdMiddleware } from "@/adapter/shared/middleware/correlation-id.middleware";
+import { HealthController } from "@/adapter/shared/api/health.controller";
 
 @Module({
   imports: [
@@ -25,7 +26,7 @@ import { CorrelationIdMiddleware } from "@/adapter/shared/middleware/correlation
     OAuthModule,
     LoggerModule,
   ],
-  controllers: [],
+  controllers: [HealthController],
   providers: [
     {
       provide: APP_INTERCEPTOR,
