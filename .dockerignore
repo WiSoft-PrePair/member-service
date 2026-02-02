@@ -1,0 +1,39 @@
+# 의존성 (컨테이너 내부에서 설치)
+node_modules
+
+# 빌드 결과물 (컨테이너 내부에서 빌드)
+dist
+
+# 로그
+logs
+*.log
+pnpm-debug.log*
+
+# 환경 변수 (Docker env로 주입)
+.env
+.env.*
+
+# Git
+.git
+.gitignore
+
+# GitHub Actions
+.github
+
+# IDE
+.idea
+.vscode
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 테스트/문서 (프로덕션 불필요)
+test
+docs
+coverage
+README.md
+CLAUDE.md
+
+# 설정 캐시
+.eslintcache
