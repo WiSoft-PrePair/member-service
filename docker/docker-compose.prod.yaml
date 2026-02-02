@@ -20,7 +20,7 @@ services:
       - prepair-member-network
 
   app:
-    image: ghcr.io/moondongmin/prepair-backend:latest
+    image: ghcr.io/wisoft-prepair/backend-ts:latest
     #    build:
     #      context: ..
     #      dockerfile: Dockerfile
