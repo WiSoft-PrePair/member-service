@@ -2,13 +2,15 @@ name: CI
 
 on:
   push:
-    branches: [ "#*/**" ]
+    branches:
+      - "#*/**"
   pull_request:
-    branches: [ "#*/**" ]
+    branches:
+      - "#*/**"
 
 jobs:
   # ============================================
-  # Job 1: 린트 + 테스트
+  # Job 1: app 체크 + 테스트
   # ============================================
   test:
     name: Lint & Test
@@ -76,7 +78,7 @@ jobs:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
     needs: test                         # test job 성공 후 실행
-    #    if: github.event_name == 'push' && github.ref == 'refs/heads/main'  # main push만
+#    if: github.event_name == 'push' && github.ref == 'refs/heads/main'  # main push만
     if: github.event_name == 'push'
 
     permissions:
