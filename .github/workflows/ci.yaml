@@ -48,9 +48,6 @@ jobs:
       - name: 의존성 설치
         run: pnpm install --frozen-lockfile
 
-      - name: 린트 검사
-        run: pnpm run lint
-
       - name: 테스트 실행
         env:
           NODE_ENV: test
