@@ -20,7 +20,7 @@ services:
       - prepair-member-network
 
   app:
-    image: ghcr.io/${{ github.repository }}:latest
+    image: ghcr.io/moondongmin/prepair-backend:latest
     #    build:
     #      context: ..
     #      dockerfile: Dockerfile
