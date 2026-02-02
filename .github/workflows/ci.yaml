@@ -79,13 +79,13 @@ jobs:
   build:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
-    needs: test                         # test job 성공 후 실행
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'  # main push만
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 #    if: github.event_name == 'push'
 
     permissions:
       contents: read
-      packages: write                   # GHCR에 이미지 푸시 권한
+      packages: write
 
     steps:
       - name: 코드 체크아웃
