@@ -35,6 +35,8 @@ services:
     depends_on:
       database:
         condition: service_healthy
+      fluent-bit:
+        condition: service_started
     logging:
       driver: fluentd
       options:
