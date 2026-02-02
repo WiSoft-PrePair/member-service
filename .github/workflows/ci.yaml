@@ -136,26 +136,25 @@ jobs:
 
       - name: Known Hosts 등록
         env:
-          SSH_PORT: ${{ secrets.RASPI_SSH_PORT }}
-          SSH_HOST: ${{ secrets.RASPI_HOST }}
+          JUMP_PORT: ${{ secrets.RASPI_SSH_PORT }}
+          JUMP_HOST: ${{ secrets.RASPI_HOST }}
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -p $SSH_PORT -H $SSH_HOST >> ~/.ssh/known_hosts
+          ssh-keyscan -p $JUMP_PORT -H $JUMP_HOST >> ~/.ssh/known_hosts
 
       - name: 서버에 배포
         env:
-          SSH_PORT: ${{ secrets.RASPI_SSH_PORT }}
-          SSH_HOST: ${{ secrets.RASPI_HOST }}
-          SSH_USER: ${{ secrets.RASPI_USER }}
+          JUMP_PORT: ${{ secrets.RASPI_SSH_PORT }}
+          JUMP_HOST: ${{ secrets.RASPI_HOST }}
+          JUMP_USER: ${{ secrets.RASPI_USER }}
+          TARGET_HOST: ${{ secrets.RASPI_TARGET_HOST }}
+          TARGET_USER: ${{ secrets.RASPI_TARGET_USER }}
           DEPLOY_PATH: ${{ secrets.RASPI_DEPLOY_PATH }}
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
           GITHUB_ACTOR: ${{ github.actor }}
         run: |
-          ssh -p $SSH_PORT $SSH_USER@$SSH_HOST << ENDSSH
+          ssh -o ProxyJump=$JUMP_USER@$JUMP_HOST:$JUMP_PORT $TARGET_USER@$TARGET_HOST /bin/bash << ENDSSH
             set -e
-          
-          echo "=== prepair 환경 진입 ==="
-            prepair
 
             echo "=== 배포 디렉토리 이동 ==="
             cd $DEPLOY_PATH
@@ -187,10 +186,12 @@ jobs:
       - name: 오래된 Docker 이미지 정리
         if: success()
         env:
-          SSH_PORT: ${{ secrets.RASPI_SSH_PORT }}
-          SSH_HOST: ${{ secrets.RASPI_HOST }}
-          SSH_USER: ${{ secrets.RASPI_USER }}
+          JUMP_PORT: ${{ secrets.RASPI_SSH_PORT }}
+          JUMP_HOST: ${{ secrets.RASPI_HOST }}
+          JUMP_USER: ${{ secrets.RASPI_USER }}
+          TARGET_HOST: ${{ secrets.RASPI_TARGET_HOST }}
+          TARGET_USER: ${{ secrets.RASPI_TARGET_USER }}
         run: |
-          ssh -p $SSH_PORT $SSH_USER@$SSH_HOST /bin/bash << ENDSSH
+          ssh -o ProxyJump=$JUMP_USER@$JUMP_HOST:$JUMP_PORT $TARGET_USER@$TARGET_HOST /bin/bash << ENDSSH
             docker image prune -af --filter "until=72h" || true
           ENDSSH
