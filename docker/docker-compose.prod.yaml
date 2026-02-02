@@ -11,7 +11,7 @@ services:
     volumes:
       - prepair-pg:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      test: [ 'CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}' ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -20,9 +20,10 @@ services:
       - prepair-member-network
 
   app:
-    build:
-      context: ..
-      dockerfile: Dockerfile
+    image: ghcr.io/${{ github.repository }}:latest
+    #    build:
+    #      context: ..
+    #      dockerfile: Dockerfile
     container_name: prepair-backend-nestjs
     env_file:
       - ../.env
