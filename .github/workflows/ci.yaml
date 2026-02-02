@@ -153,7 +153,7 @@ jobs:
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
           GITHUB_ACTOR: ${{ github.actor }}
         run: |
-          ssh -o ProxyJump=$JUMP_USER@$JUMP_HOST:$JUMP_PORT $TARGET_USER@$TARGET_HOST /bin/bash << ENDSSH
+          ssh -o StrictHostKeyChecking=no -o ProxyJump=$JUMP_USER@$JUMP_HOST:$JUMP_PORT $TARGET_USER@$TARGET_HOST /bin/bash << ENDSSH
             set -e
 
             echo "=== 배포 디렉토리 이동 ==="
@@ -192,6 +192,6 @@ jobs:
           TARGET_HOST: ${{ secrets.RASPI_TARGET_HOST }}
           TARGET_USER: ${{ secrets.RASPI_TARGET_USER }}
         run: |
-          ssh -o ProxyJump=$JUMP_USER@$JUMP_HOST:$JUMP_PORT $TARGET_USER@$TARGET_HOST /bin/bash << ENDSSH
+          ssh -o StrictHostKeyChecking=no -o ProxyJump=$JUMP_USER@$JUMP_HOST:$JUMP_PORT $TARGET_USER@$TARGET_HOST /bin/bash << ENDSSH
             docker image prune -af --filter "until=72h" || true
           ENDSSH
