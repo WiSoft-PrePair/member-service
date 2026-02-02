@@ -16,27 +16,57 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks:
+      - prepair-member-network
+
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: prepair-backend-nestjs
+    env_file:
+      - ../.env
+    environment:
+      NODE_ENV: production
+      POSTGRES_HOST: database
+      POSTGRES_PORT: 5432
+    ports:
+      - '${PORT}:${PORT}'
+    depends_on:
+      database:
+        condition: service_healthy
+      fluent-bit:
+        condition: service_started
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: localhost:24224
+        tag: backend.prepair
+        fluentd-async: 'true'
+    restart: unless-stopped
+    networks:
+      - prepair-member-network
 
   fluent-bit:
     image: fluent/fluent-bit:3.2
     container_name: prepair-fluent-bit
+    ports:
+      - '24224:24224'
     volumes:
-      - ./fluentbit/fluent-bit-file.conf:/fluent-bit/etc/fluent-bit.conf
-      - ./fluentbit/parsers.conf:/fluent-bit/etc/parsers.conf
-      - ./logs:/logs
+      - ../fluentbit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
+      - ../fluentbit/parsers.conf:/fluent-bit/etc/parsers.conf
     environment:
-      - SERVICE_NAME=prepair-member-logs
-      - SERVICE_ENV=production
-      - ELASTICSEARCH_HOST=elasticsearch
-      - ELASTIC_USERNAME=${ELASTIC_USERNAME}
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
     networks:
       - prepair-member-network
       - logging-network
 
 volumes:
   prepair-pg:
-  prepair-member-logs:
 
 networks:
   prepair-member-network:

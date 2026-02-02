@@ -8,6 +8,7 @@
 .claude
 CLAUDE.md
 ./logs/app.log
+./docs/cicd/**
 
 # User-specific stuff
 .idea/**/workspace.xml

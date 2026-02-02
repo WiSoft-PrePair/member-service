@@ -1,98 +1,80 @@
 import { Params } from "nestjs-pino";
-import path from "node:path";
 
-const isProduction =
-  process.env.NODE_ENV === "prod" || process.env.NODE_ENV === "production";
+export const getLoggingConfig = (): Params => {
+  const isDevelopment =
+    process.env.NODE_ENV === "dev" || process.env.NODE_ENV === "development";
+  const hasPinoPretty = (() => {
+    try {
+      require.resolve("pino-pretty");
+      return true;
+    } catch {
+      return false;
+    }
+  })();
 
-const LOG_DIR = process.env.LOG_DIR || path.join(__dirname, "../../logs");
+  // 한국 시간(UTC+9)으로 ISO 8601 형식 생성
+  const formatKSTTimestamp = (): string => {
+    const now = new Date();
+    const kstTime = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+    const isoString = kstTime.toISOString();
+    return isoString.replace("Z", "+09:00");
+  };
 
-export const loggingConfig: Params = {
-  pinoHttp: {
-    level: process.env.LOG_LEVEL || "info",
-    messageKey: "message",
-    transport: !isProduction
-      ? {
-          // 개발 환경: 콘솔에 예쁘게 출력
-          target: "pino-pretty",
-          options: {
-            colorize: true,
-            ignore: "pid,hostname",
-          },
-        }
-      : {
-          // 프로덕션 환경: 파일 저장 (Fluent Bit 수집용)
-          targets: [
-            {
-              target: "pino/file",
-              level: "info",
+  return {
+    pinoHttp: {
+      level: process.env.LOG_LEVEL || "info",
+      messageKey: "message",
+      timestamp: () => `,"timestamp":"${formatKSTTimestamp()}"`,
+      // 프로덕션: transport 없이 JSON 직접 출력, 개발: pino-pretty 사용
+      transport:
+        isDevelopment && hasPinoPretty
+          ? {
+              target: "pino-pretty",
               options: {
-                destination: path.join(LOG_DIR, "app.log"),
-                mkdir: true,
-                sync: true, // 실시간 로그 전송을 위한 동기 쓰기
+                colorize: true,
+                ignore: "pid,hostname",
               },
-            },
-            {
-              // stdout에도 JSON 출력 (Docker logging driver용)
-              target: "pino/file",
-              level: "info",
-              options: {
-                destination: 1, // 1 = stdout
-                sync: true,
-              },
-            },
-          ],
+            }
+          : undefined,
+      customProps: () => ({
+        service: process.env.SERVICE_NAME || "prepair-member-service",
+        environment: process.env.NODE_ENV || "development",
+      }),
+      formatters: {
+        level: (label: string) => {
+          // level을 대문자로 변환 (INFO, ERROR, WARN, DEBUG)
+          return { level: label.toUpperCase() };
         },
-    customProps: () => ({
-      service: process.env.SERVICE_NAME || "prepair-member-service",
-      environment: process.env.NODE_ENV || "development",
-    }),
-    // transport.targets 사용 시 formatters는 개발 환경에서만 적용
-    formatters: !isProduction
-      ? {
-          level: (label: string) => {
-            return { level: label.toUpperCase() };
-          },
-          bindings: () => ({}),
-        }
-      : undefined,
-    serializers: {
-      req: () => undefined,
-      res: () => undefined,
-    },
-    redact: {
-      paths: ["req.headers.authorization", "req.body.password"],
-      remove: true,
-    },
-  },
-};
+        bindings: () => ({}), // pid, hostname 제거
+        log: (object: any) => {
+          // correlationId가 있으면 포함
+          const { req, res, err, context, ...rest } = object;
 
-export const fileLoggingConfig: Params = {
-  ...loggingConfig,
-  pinoHttp: {
-    ...loggingConfig.pinoHttp,
-    transport: {
-      targets: [
-        // 콘솔 출력 (개발용)
-        {
-          target: "pino-pretty",
-          level: "info",
-          options: {
-            colorize: true,
-            ignore: "pid,hostname",
-          },
-        },
+          const formatted: any = {
+            ...rest,
+            ...(context && { module: context }), // NestJS Logger context를 module로 매핑
+          };
 
-        // 파일 출력 (Fluentbit 수집용)
-        {
-          target: "pino/file",
-          level: "info",
-          options: {
-            destination: path.join(LOG_DIR, "app.log"),
-            mkdir: true,
-            sync: true, // 실시간 로그 전송을 위한 동기 쓰기
-          },
+          // 에러가 있으면 구조화
+          if (err) {
+            formatted.error = {
+              type: err.name || "Error",
+              message: err.message,
+              ...(err.stack && isDevelopment && { stack: err.stack }),
+            };
+          }
+
+          return formatted;
         },
-      ],
+      },
+      serializers: {
+        req: () => undefined,
+        res: () => undefined,
+      },
+      redact: {
+        paths: ["req.headers.authorization", "req.body.password"],
+        remove: true,
+      },
     },
-  },
+  };
 };
