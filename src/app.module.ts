@@ -12,6 +12,8 @@ import { OAuthModule } from "@/adapter/oauth/oauth.module";
 import { LoggerModule } from "@/adapter/shared/logger/logger.module";
 import { CorrelationIdMiddleware } from "@/adapter/shared/middleware/correlation-id.middleware";
 import { HealthController } from "@/adapter/shared/api/health.controller";
+import { InterviewModule } from "@/adapter/interview/interview.module";
+import { PrismaModule } from "@/adapter/shared/prisma";
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { HealthController } from "@/adapter/shared/api/health.controller";
     AuthModule,
     OAuthModule,
     LoggerModule,
+    InterviewModule,
+    PrismaModule,
   ],
   controllers: [HealthController],
   providers: [

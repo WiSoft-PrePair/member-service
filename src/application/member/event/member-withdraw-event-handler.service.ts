@@ -7,9 +7,7 @@ import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
 
 @Injectable()
 @EventsHandler(MemberWithdrawEvent)
-export class MemberWithdrawEventHandler
-  implements IEventHandler<MemberWithdrawEvent>
-{
+export class MemberWithdrawEventHandler implements IEventHandler<MemberWithdrawEvent> {
   constructor(
     private readonly em: EntityManager,
     @Inject(LOGGER)

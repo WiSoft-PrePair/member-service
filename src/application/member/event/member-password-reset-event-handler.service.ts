@@ -7,9 +7,7 @@ import { EntityManager } from "@mikro-orm/postgresql";
 
 @Injectable()
 @EventsHandler(MemberPasswordResetEvent)
-export class MemberPasswordResetEventHandler
-  implements IEventHandler<MemberPasswordResetEvent>
-{
+export class MemberPasswordResetEventHandler implements IEventHandler<MemberPasswordResetEvent> {
   constructor(
     private readonly em: EntityManager,
     @Inject(LOGGER)

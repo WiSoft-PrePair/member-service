@@ -28,9 +28,10 @@ export class ChangePasswordCommand implements ICommand {
 
 @Injectable()
 @CommandHandler(ChangePasswordCommand)
-export class ChangePasswordCommandHandler
-  implements ICommandHandler<ChangePasswordCommand, string>
-{
+export class ChangePasswordCommandHandler implements ICommandHandler<
+  ChangePasswordCommand,
+  string
+> {
   constructor(
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepository: MemberRepository,

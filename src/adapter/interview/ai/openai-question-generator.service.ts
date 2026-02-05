@@ -1,27 +1,73 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import {
   AIQuestionGenerator,
   GeneratedQuestion,
 } from "@/application/interview/ports";
 import { ConfigService } from "@nestjs/config";
+import { OpenAI } from "openai";
+import { QuestionTypeEnum } from "@/domain/interview/enums";
 
 @Injectable()
 export class OpenaiQuestionGeneratorService implements AIQuestionGenerator {
-  private readonly apiKey: string;
+  private readonly client: OpenAI;
   private readonly model: string;
+  private readonly logger: Logger = new Logger(
+    OpenaiQuestionGeneratorService.name,
+  );
 
   constructor(private readonly configService: ConfigService) {
-    this.apiKey = this.configService.getOrThrow<string>("OPENAI_API_KEY");
+    this.client = new OpenAI({
+      apiKey: this.configService.getOrThrow<string>("OPENAI_API_KEY"),
+    });
     this.model = this.configService.getOrThrow<string>("OPENAI_MODEL");
   }
 
   async generateQuestions(
     job: string,
-    count?: number,
-  ): Promise<GeneratedQuestion> {
-    // const prompt: string = this.buildPrompt(job, count);
-    //
-    // const reponse = await
+    count: number = 1,
+  ): Promise<GeneratedQuestion[]> {
+    const prompt: string = this.buildPrompt(job, count);
+
+    this.logger.log("Interview Question generate started", {
+      module: "OpenaiQuestionGeneratorService",
+      job,
+      count,
+    });
+
+    const response = await this.client.chat.completions.create({
+      model: this.model,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an expert interview. Always respond in valid JSON only.",
+        },
+        { role: "user", content: prompt },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.8,
+    });
+
+    const content: string | null = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error("OpenAI returned Error response");
+    }
+
+    const parsed = JSON.parse(content) as {
+      questions: Array<{ question: string; questionTag: string }>;
+    };
+
+    this.logger.log("Interview Question generate completed", {
+      module: "OpenaiQuestionGeneratorService",
+      job,
+      count,
+    });
+
+    return parsed.questions.map((q) => ({
+      question: q.question,
+      questionType: QuestionTypeEnum.TEXT,
+      questionTag: q.questionTag,
+    }));
   }
 
   private buildPrompt(job: string, count: number = 1) {

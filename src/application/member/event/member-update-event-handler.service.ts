@@ -7,9 +7,7 @@ import { EntityManager } from "@mikro-orm/postgresql";
 
 @Injectable()
 @EventsHandler(MemberUpdateEvent)
-export class MemberUpdateEventHandler
-  implements IEventHandler<MemberUpdateEvent>
-{
+export class MemberUpdateEventHandler implements IEventHandler<MemberUpdateEvent> {
   constructor(
     private readonly em: EntityManager,
     @Inject(LOGGER)

@@ -71,9 +71,6 @@ importers:
       passport-jwt:
         specifier: ^4.0.1
         version: 4.0.1
-      pg:
-        specifier: ^8.18.0
-        version: 8.18.0
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
