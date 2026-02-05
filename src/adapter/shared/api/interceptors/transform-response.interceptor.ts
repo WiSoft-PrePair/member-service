@@ -9,10 +9,9 @@ import { SuccessResponse } from "@/adapter/shared/api/types/api-response.type";
 import { map, Observable } from "rxjs";
 
 @Injectable()
-export class TransformResponseInterceptor<T> implements NestInterceptor<
-  T,
-  SuccessResponse<T>
-> {
+export class TransformResponseInterceptor<T>
+  implements NestInterceptor<T, SuccessResponse<T>>
+{
   intercept(
     context: ExecutionContext,
     next: CallHandler<T>,

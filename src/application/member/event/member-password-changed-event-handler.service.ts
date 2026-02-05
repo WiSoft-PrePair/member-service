@@ -7,7 +7,9 @@ import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
 
 @Injectable()
 @EventsHandler(MemberPasswordChangedEvent)
-export class MemberPasswordChangedEventHandler implements IEventHandler<MemberPasswordChangedEvent> {
+export class MemberPasswordChangedEventHandler
+  implements IEventHandler<MemberPasswordChangedEvent>
+{
   constructor(
     private readonly em: EntityManager,
     @Inject(LOGGER)

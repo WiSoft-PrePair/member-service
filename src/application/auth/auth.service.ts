@@ -64,6 +64,7 @@ export class AuthService {
     return {
       memberId: member.id,
       email: member.email.value,
+      job: member.job,
     };
   }
 }

@@ -163,6 +163,7 @@ export class KakaOauthService {
     const accessToken: JwtToken = this.jwtService.generateAccessToken(
       result.memberId,
       result.member.email.value,
+      result.member.job,
     );
 
     const refreshToken: string = await this.refreshTokenService.create(
@@ -199,6 +200,7 @@ export class KakaOauthService {
     const accessToken: JwtToken = this.jwtService.generateAccessToken(
       member.id,
       member.email.value,
+      member.job,
     );
 
     const refreshToken: string = await this.refreshTokenService.create(
@@ -285,6 +287,7 @@ export class KakaOauthService {
     const accessToken: JwtToken = this.jwtService.generateAccessToken(
       member.id,
       member.email.value,
+      member.job,
     );
 
     return {

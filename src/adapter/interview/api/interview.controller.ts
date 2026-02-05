@@ -1,24 +1,29 @@
-import { Body, Controller, Post } from "@nestjs/common";
+import {
+  Controller,
+  DefaultValuePipe,
+  Get,
+  ParseIntPipe,
+  Query,
+} from "@nestjs/common";
 import { InterviewService } from "@/application/interview/interview.service";
 import { CurrentUser } from "@/adapter/shared/api/decorators/current-user.decorator";
 import type { User } from "@/adapter/shared/api/types/user";
-import { CreateQuestionDto } from "@/adapter/interview/api/dto";
 import { InterviewQuestion } from "@/generated/prisma/client";
 
 @Controller("api/interview")
 export class InterviewController {
   constructor(private readonly interviewService: InterviewService) {}
 
-  @Post("create-question")
+  @Get("question")
   async createQuestion(
     @CurrentUser() user: User,
-    @Body() dto: CreateQuestionDto,
+    @Query("count", new DefaultValuePipe(1), ParseIntPipe) count: number,
   ) {
     const questions: InterviewQuestion[] =
       await this.interviewService.generateQuestion(
         user.memberId,
-        dto.job,
-        dto.count,
+        user.job,
+        count,
       );
 
     return {
