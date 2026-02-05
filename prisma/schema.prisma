@@ -1,0 +1,31 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model InterviewQuestion {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  question     String   @db.Text
+  questionType String   @map("question_type") @db.VarChar(20)
+  questionTag  String   @map("question_tag") @db.VarChar(50)
+  status       String   @default("unanswered") @db.VarChar(20)
+  score        Int      @default(0)
+  sourceRef    String?  @map("source_ref")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("interview_question")
+  @@index([userId])
+  @@index([userId, createdAt])
+}
