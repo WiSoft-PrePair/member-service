@@ -11,6 +11,7 @@ export class OAuthConnection {
   readonly provider: OAuthProvider;
   readonly providerId: string;
   readonly email: string;
+  readonly accessToken?: string;
   readonly connectedAt: Date;
 
   private constructor(data: OAuthConnectionType) {
@@ -19,6 +20,7 @@ export class OAuthConnection {
     this.provider = data.provider;
     this.providerId = data.providerId;
     this.email = data.email;
+    this.accessToken = data.accessToken;
     this.connectedAt = data.connectedAt;
   }
 
@@ -29,6 +31,7 @@ export class OAuthConnection {
       provider: request.provider,
       providerId: request.providerId,
       email: request.email,
+      accessToken: request.accessToken,
       connectedAt: new Date(),
     });
   }

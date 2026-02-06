@@ -6,6 +6,7 @@ export type OAuthConnectionType = {
   provider: OAuthProvider;
   providerId: string;
   email: string;
+  accessToken?: string;
   connectedAt: Date;
 };
 
@@ -14,4 +15,5 @@ export type ConnectOAuthRequest = {
   provider: OAuthProvider;
   providerId: string;
   email: string;
+  accessToken?: string;
 };

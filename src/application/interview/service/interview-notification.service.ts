@@ -87,6 +87,7 @@ export class InterviewNotificationService {
         memberId: recipient.memberId,
         notification: recipient.notification,
       });
+
     } catch (error) {
       this.logger.error("Failed to send notification", error as Error, {
         module: "InterviewNotificationService",

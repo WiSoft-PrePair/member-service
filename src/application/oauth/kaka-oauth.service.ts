@@ -56,7 +56,6 @@ export class KakaOauthService {
   ) {}
 
   async handleCallback(code: string) {
-    // ✅ Port 인터페이스 사용
     const tokens: OAuthTokenResponse =
       await this.oauthProvider.exchangeCodeForAccessToken(code);
 
@@ -74,6 +73,12 @@ export class KakaOauthService {
       );
 
     if (existingConnection) {
+      await this.oauthConnectionRepository.updateTokens(existingConnection.id, {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        tokenExpiresAt: new Date(Date.now() + tokens.expiresIn * 1000),
+      });
+
       return this.loginExistingMember(existingConnection.memberId);
     }
 
@@ -86,6 +91,7 @@ export class KakaOauthService {
         existingMember,
         providerId,
         email,
+        tokens,
       );
 
       return this.loginExistingMember(existingMember.id);
@@ -98,6 +104,9 @@ export class KakaOauthService {
         nickname,
         provider: "kakao",
         providerId,
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        tokenExpiresIn: tokens.expiresIn,
       });
 
     return {
@@ -156,6 +165,9 @@ export class KakaOauthService {
           job,
           notification,
           frequency,
+          oauthData.accessToken,
+          oauthData.refreshToken,
+          oauthData.tokenExpiresIn,
         ),
       );
 
@@ -264,6 +276,13 @@ export class KakaOauthService {
     });
 
     this.oauthConnectionRepository.save(connection);
+
+    await this.oauthConnectionRepository.updateTokens(connection.id, {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      tokenExpiresAt: new Date(Date.now() + tokens.expiresIn * 1000),
+    });
+
     await this.em.flush();
 
     // notification을 BOTH로 변경 (이메일 + 카카오 알림)
@@ -301,11 +320,11 @@ export class KakaOauthService {
   /**
    * 기존 회원에 OAuth 연결 (카카오 로그인 시 동일 이메일 자동 연동)
    */
-  // eslint-disable-next-line
   private async connectOAuthToExistingMember(
     member: Member,
     providerId: string,
     email: string,
+    tokens: OAuthTokenResponse,
   ) {
     const connection: OAuthConnection = OAuthConnection.connect({
       memberId: member.id,
@@ -315,5 +334,11 @@ export class KakaOauthService {
     });
 
     this.oauthConnectionRepository.save(connection);
+
+    await this.oauthConnectionRepository.updateTokens(connection.id, {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      tokenExpiresAt: new Date(Date.now() + tokens.expiresIn * 1000),
+    });
   }
 }

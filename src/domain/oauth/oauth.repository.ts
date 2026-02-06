@@ -19,6 +19,15 @@ export interface OauthRepository {
   disconnect(id: string): Promise<void>;
 
   disconnectAllByMemberId(memberId: string): Promise<void>;
+
+  updateTokens(
+    connectionId: string,
+    tokens: {
+      accessToken: string;
+      refreshToken?: string;
+      tokenExpiresAt: Date;
+    },
+  ): Promise<void>;
 }
 
 export const OAUTH_REPOSITORY = Symbol("OauthRepository");

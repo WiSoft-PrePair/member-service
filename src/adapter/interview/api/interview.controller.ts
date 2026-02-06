@@ -1,20 +1,26 @@
 import {
   Controller,
   DefaultValuePipe,
+  Get,
   ParseIntPipe,
   Post,
   Query,
-}                           from "@nestjs/common";
+} from "@nestjs/common";
 import { InterviewService } from "@/application/interview/service/interview.service";
-import { CurrentUser }      from "@/adapter/shared/api/decorators/current-user.decorator";
+import { CurrentUser } from "@/adapter/shared/api/decorators/current-user.decorator";
 import type { User } from "@/adapter/shared/api/types/user";
 import { InterviewQuestion } from "@/generated/prisma/client";
+import { InterviewQuestionScheduler } from "@/application/interview/service/interview-question-scheduler";
+import { Public } from "@/adapter/shared/api/decorators/public.decorator";
 
 @Controller("api/interview")
 export class InterviewController {
-  constructor(private readonly interviewService: InterviewService) {}
+  constructor(
+    private readonly interviewService: InterviewService,
+    private readonly scheduler: InterviewQuestionScheduler,
+  ) {}
 
-  @Post("question")
+  @Get("question")
   async createQuestion(
     @CurrentUser() user: User,
     @Query("count", new DefaultValuePipe(1), ParseIntPipe) count: number,
@@ -38,5 +44,19 @@ export class InterviewController {
         createdAt: q.createdAt,
       })),
     };
+  }
+
+  @Public()
+  @Post("trigger-daily")
+  async triggerDaily() {
+    await this.scheduler.handleDailyNotification();
+    return { success: true };
+  }
+
+  @Public()
+  @Post("trigger-weekly")
+  async triggerWeekly() {
+    await this.scheduler.handleWeeklyNotification();
+    return { success: true };
   }
 }

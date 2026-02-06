@@ -5,5 +5,8 @@ export interface OAuthRegistrationPayload {
   nickname: string;
   provider: OAuthProvider;
   providerId: string;
+  accessToken: string;
+  refreshToken?: string;
+  tokenExpiresIn: number;
   type: "oauth_registration";
 }

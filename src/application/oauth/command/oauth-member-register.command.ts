@@ -39,6 +39,9 @@ export class OAuthMemberRegisterCommand implements ICommand {
     public readonly job: string,
     public readonly notification: NotificationEnum,
     public readonly frequency: FrequencyEnum,
+    public readonly accessToken?: string,
+    public readonly refreshToken?: string,
+    public readonly tokenExpiresIn?: number,
   ) {}
 }
 
@@ -96,6 +99,16 @@ export class OAuthMemberRegisterCommandHandler
       email: command.email,
     });
     this.oauthRepository.save(connection);
+
+    if (command.accessToken) {
+      await this.oauthRepository.updateTokens(connection.id, {
+        accessToken: command.accessToken,
+        refreshToken: command.refreshToken,
+        tokenExpiresAt: new Date(
+          Date.now() + (command.tokenExpiresIn ?? 0) * 1000,
+        ),
+      });
+    }
 
     this.eventStore.append(
       createDomainEvent(member.id, "MemberRegistered", {

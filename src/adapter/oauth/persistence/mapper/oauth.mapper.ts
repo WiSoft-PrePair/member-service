@@ -11,6 +11,7 @@ export class OAuthConnectionMapper {
       provider: entity.provider as OAuthProvider,
       providerId: entity.providerId,
       email: entity.email,
+      accessToken: entity.accessToken,
       connectedAt: entity.connectedAt,
     });
   }
@@ -23,6 +24,7 @@ export class OAuthConnectionMapper {
     entity.provider = domain.provider;
     entity.providerId = domain.providerId;
     entity.email = domain.email;
+    entity.accessToken = domain.accessToken;
     entity.connectedAt = domain.connectedAt;
 
     return entity;
