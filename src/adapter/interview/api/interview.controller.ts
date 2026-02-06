@@ -1,8 +1,8 @@
 import {
   Controller,
   DefaultValuePipe,
-  Get,
   ParseIntPipe,
+  Post,
   Query,
 } from "@nestjs/common";
 import { InterviewService } from "@/application/interview/interview.service";
@@ -14,7 +14,7 @@ import { InterviewQuestion } from "@/generated/prisma/client";
 export class InterviewController {
   constructor(private readonly interviewService: InterviewService) {}
 
-  @Get("question")
+  @Post("question")
   async createQuestion(
     @CurrentUser() user: User,
     @Query("count", new DefaultValuePipe(1), ParseIntPipe) count: number,
