@@ -4,9 +4,9 @@ import {
   ParseIntPipe,
   Post,
   Query,
-} from "@nestjs/common";
-import { InterviewService } from "@/application/interview/interview.service";
-import { CurrentUser } from "@/adapter/shared/api/decorators/current-user.decorator";
+}                           from "@nestjs/common";
+import { InterviewService } from "@/application/interview/service/interview.service";
+import { CurrentUser }      from "@/adapter/shared/api/decorators/current-user.decorator";
 import type { User } from "@/adapter/shared/api/types/user";
 import { InterviewQuestion } from "@/generated/prisma/client";
 
