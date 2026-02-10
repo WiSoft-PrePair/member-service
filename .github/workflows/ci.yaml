@@ -118,6 +118,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha          # GitHub Actions 캐시 사용
-          cache-to: type=gha,mode=max
+          cache-from: types=gha          # GitHub Actions 캐시 사용
+          cache-to: types=gha,mode=max
 

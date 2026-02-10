@@ -4,8 +4,8 @@ import {
   GeneratedQuestion,
 } from "@/application/interview/ports";
 import { ConfigService } from "@nestjs/config";
-import { OpenAI } from "openai";
-import { QuestionTypeEnum } from "@/domain/interview/enums";
+import { OpenAI }           from "openai";
+import { QuestionTypeEnum } from "@/domain/interview/question/enums";
 
 @Injectable()
 export class OpenaiQuestionGeneratorService implements AIQuestionGenerator {

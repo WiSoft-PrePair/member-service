@@ -9,8 +9,8 @@ import {
   AI_QUESTION_GENERATOR,
   type AIQuestionGenerator,
   GeneratedQuestion,
-} from "@/application/interview/ports";
-import { QuestionTypeEnum } from "@/domain/interview/enums";
+}                           from "@/application/interview/ports";
+import { QuestionTypeEnum } from "@/domain/interview/question/enums";
 
 @Injectable()
 export class InterviewService {
