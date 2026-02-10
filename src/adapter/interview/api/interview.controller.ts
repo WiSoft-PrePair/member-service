@@ -47,7 +47,7 @@ export class InterviewController {
   }
 
   @Public()
-  @Post("trigger-daily")
+  @Post("trigger-every")
   async triggerDaily() {
     await this.scheduler.handleDailyNotification();
     return { success: true };

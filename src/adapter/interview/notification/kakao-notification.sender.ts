@@ -37,16 +37,16 @@ export class KakaoNotificationSender implements NotificationSender {
         method: "POST",
         headers: {
           Authorization: `Bearer ${recipient.kakaoAccessToken}`,
-          "Content-Type": "application/x-www-from-urlencoded;charset=utf-8",
+          "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
         },
         body: new URLSearchParams({
-          template_object: JSON.stringify(this.buildFeedTemplate(content)),
+          template_object: JSON.stringify(this.buildTextTemplate(content)),
         }),
       },
     );
 
     if (!response.ok) {
-      const error = await response.json();
+      const error: any = await response.json();
 
       if (error.code === -401) {
         this.logger.warn("Kakao token expired", {
@@ -73,19 +73,20 @@ export class KakaoNotificationSender implements NotificationSender {
     });
   }
 
-  private buildFeedTemplate(content: InterviewQuestionNotification) {
+  private buildTextTemplate(content: InterviewQuestionNotification) {
+    const header = `${content.recipientName}님, 오늘의 면접 질문\n\n`;
+    const maxQuestionLength = 200 - header.length;
+    const question =
+      content.question.length > maxQuestionLength
+        ? `${content.question.slice(0, maxQuestionLength - 3)}...`
+        : content.question;
+
     return {
-      object_type: "feed",
-      content: {
-        title: `${content.recipientName}님, 오늘의 면접 질문`,
-        description: content.question,
-        image_url: "https://prepair.wisoft.dev/assets/logo-EOf_Dr2C.png",
-        image_width: 200,
-        image_height: 200,
-        link: {
-          web_url: "https://prepair.wisoft.dev",
-          mobile_web_url: "https://prepair.wisoft.dev",
-        },
+      object_type: "text",
+      text: `${header}${question}`,
+      link: {
+        web_url: "https://prepair.wisoft.dev",
+        mobile_web_url: "https://prepair.wisoft.dev",
       },
       buttons: [
         {
