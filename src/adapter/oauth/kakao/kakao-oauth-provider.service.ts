@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import {
+  KakaoTokenRefreshResponse,
   KakaoTokenResponse,
   KakaoUserInfo,
 } from "@/adapter/oauth/kakao/types/kakao-oauth.types";
@@ -33,7 +34,7 @@ export class KakaoOAuthProvider implements OAuthProvider {
       code,
     });
 
-    const response = await fetch(tokenUrl, {
+    const response: Response = await fetch(tokenUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
@@ -61,12 +62,15 @@ export class KakaoOAuthProvider implements OAuthProvider {
   }
 
   async getUserInfo(accessToken: string): Promise<OAuthUserInfo> {
-    const response = await fetch("https://kapi.kakao.com/v2/user/me", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+    const response: Response = await fetch(
+      "https://kapi.kakao.com/v2/user/me",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+        },
       },
-    });
+    );
 
     if (!response.ok) {
       throw new UnauthorizedException("카카오 사용자 정보 조회 실패");
@@ -99,5 +103,43 @@ export class KakaoOAuthProvider implements OAuthProvider {
         Authorization: `Bearer ${accessToken}`,
       },
     });
+  }
+
+  async refreshAccessToken(refreshToken: string): Promise<OAuthTokenResponse> {
+    const parmas = new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: this.clientId,
+      client_secret: this.clientSecret,
+      refresh_token: refreshToken,
+    });
+
+    const response: Response = await fetch(
+      "https://kauth.kakao.com/oauth/token",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
+        },
+        body: parmas,
+      },
+    );
+
+    if (!response.ok) {
+      const error = (await response.json()) as {
+        error: string;
+        error_description: string;
+      };
+      throw new UnauthorizedException(
+        `카카오 토큰 갱신 실패: ${error.error_description}`,
+      );
+    }
+
+    const kakaoTokens = (await response.json()) as KakaoTokenRefreshResponse;
+
+    return {
+      accessToken: kakaoTokens.access_token,
+      refreshToken: kakaoTokens.refresh_token,
+      expiresIn: kakaoTokens.expires_in,
+    };
   }
 }

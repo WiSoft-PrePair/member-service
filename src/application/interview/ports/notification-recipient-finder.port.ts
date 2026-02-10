@@ -12,6 +12,8 @@ export interface NotificationRecipient {
   notification: NotificationEnum;
   frequency: FrequencyEnum;
   kakaoAccessToken?: string;
+  kakaoRefreshToken?: string;
+  kakaoConnectionId?: string;
 }
 
 // 알림 수싲ㄴ자 조회 인터페이스

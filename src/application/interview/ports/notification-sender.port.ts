@@ -13,7 +13,12 @@ export interface NotificationSender {
   readonly channel: NotificationChannel;
 
   send(
-    recipient: { email?: string; kakaoAccessToken?: string },
+    recipient: {
+      email?: string;
+      kakaoAccessToken?: string;
+      kakaoRefreshToken?: string;
+      kakaoConnectionId?: string;
+    },
     content: InterviewQuestionNotification,
   ): Promise<void>;
 

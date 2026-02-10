@@ -33,3 +33,11 @@ export interface KakaoUserProfile {
   email: string;
   nickname: string;
 }
+
+export interface KakaoTokenRefreshResponse {
+  token_type: "bearer";
+  access_token: string;
+  expires_in: number;
+  refresh_token?: string; // 1개월 미만일 때만 반환
+  refresh_token_expires_in?: number; // 1개월 미만일 때만 반환
+}

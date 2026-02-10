@@ -13,8 +13,12 @@ export interface OAuthUserInfo {
 
 export interface OAuthProvider {
   exchangeCodeForAccessToken(code: string): Promise<OAuthTokenResponse>;
+
   getUserInfo(accessToken: string): Promise<OAuthUserInfo>;
+
   unlink(accessToken: string): Promise<void>;
+
+  refreshAccessToken(refreshToken: string): Promise<OAuthTokenResponse>;
 }
 
 export const KAKAO_OAUTH_PROVIDER = Symbol("KakaoOAuthProvider");
