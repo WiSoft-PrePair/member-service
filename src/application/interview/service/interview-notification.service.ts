@@ -87,7 +87,6 @@ export class InterviewNotificationService {
         memberId: recipient.memberId,
         notification: recipient.notification,
       });
-
     } catch (error) {
       this.logger.error("Failed to send notification", error as Error, {
         module: "InterviewNotificationService",
@@ -119,12 +118,36 @@ export class InterviewNotificationService {
         {
           email: recipient.email,
           kakaoAccessToken: recipient.kakaoAccessToken,
+          kakaoRefreshToken: recipient.kakaoRefreshToken,
+          kakaoConnectionId: recipient.kakaoConnectionId,
         },
         content,
       );
     });
 
-    await Promise.allSettled(sendPromises);
+    const results = await Promise.allSettled(sendPromises);
+
+    const kakaoIndex = channelsToSend.indexOf("kakao");
+    const emailAlreadySent = channelsToSend.includes("email");
+
+    if (
+      kakaoIndex !== -1 &&
+      !emailAlreadySent &&
+      results[kakaoIndex].status === "rejected" &&
+      results[kakaoIndex].reason?.name === "KakaoTokenExpiredError"
+    ) {
+      this.logger.log("Kakao token expired, falling back to email", {
+        module: "InterviewNotificationService",
+        memberId: recipient.memberId,
+      });
+
+      const emailSender = this.notificationSenders.find((s) =>
+        s.supports("email"),
+      );
+      if (emailSender) {
+        await emailSender.send({ email: recipient.email }, content);
+      }
+    }
   }
 
   private getChannelsToSend(

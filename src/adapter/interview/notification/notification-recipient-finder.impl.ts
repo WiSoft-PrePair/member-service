@@ -9,7 +9,9 @@ import { MemberReadEntity } from "@/adapter/member/persistence/read";
 import { OAuthConnectionEntity } from "@/adapter/oauth/persistence/entity/oauth.entity";
 
 @Injectable()
-export class NotificationRecipientFinderImpl implements NotificationRecipientFinder {
+export class NotificationRecipientFinderImpl
+  implements NotificationRecipientFinder
+{
   constructor(private readonly em: EntityManager) {}
 
   async findEligibleRecipients(
@@ -48,6 +50,8 @@ export class NotificationRecipientFinderImpl implements NotificationRecipientFin
         notification: member.notification,
         frequency: member.frequency,
         kakaoAccessToken: kakaoConnection?.accessToken,
+        kakaoRefreshToken: kakaoConnection?.refreshToken,
+        kakaoConnectionId: kakaoConnection?.id,
       };
     });
   }

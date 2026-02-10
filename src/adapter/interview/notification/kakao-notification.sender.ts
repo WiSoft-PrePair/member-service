@@ -1,6 +1,8 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, UnauthorizedException } from "@nestjs/common";
 import {
   InterviewQuestionNotification,
+  KAKAO_TOKEN_REFRESHER,
+  type KakaoTokenRefresher,
   NotificationChannel,
   NotificationSender,
 } from "@/application/interview/ports";
@@ -13,6 +15,8 @@ export class KakaoNotificationSender implements NotificationSender {
   constructor(
     @Inject(LOGGER)
     private readonly logger: ILogger,
+    @Inject(KAKAO_TOKEN_REFRESHER)
+    private readonly tokenRefresher: KakaoTokenRefresher,
   ) {}
 
   supports(channel: NotificationChannel): boolean {
@@ -20,7 +24,12 @@ export class KakaoNotificationSender implements NotificationSender {
   }
 
   async send(
-    recipient: { kakaoAccessToken?: string },
+    recipient: {
+      email?: string;
+      kakaoAccessToken?: string;
+      kakaoRefreshToken?: string;
+      kakaoConnectionId?: string;
+    },
     content: InterviewQuestionNotification,
   ): Promise<void> {
     if (!recipient.kakaoAccessToken) {
@@ -31,12 +40,51 @@ export class KakaoNotificationSender implements NotificationSender {
       return;
     }
 
+    const result = await this.sendKakaoMessage(
+      recipient.kakaoAccessToken,
+      content,
+    );
+    if (result === "success") return;
+
+    if (result === "token_expired") {
+      if (!recipient.kakaoRefreshToken || !recipient.kakaoConnectionId) {
+        throw new UnauthorizedException();
+      }
+
+      try {
+        const refreshResult = await this.tokenRefresher.refreshToken(
+          recipient.kakaoConnectionId,
+          recipient.kakaoRefreshToken,
+        );
+
+        const retryResult = await this.sendKakaoMessage(
+          refreshResult.accessToken,
+          content,
+        );
+
+        if (retryResult === "success") return;
+
+        throw new UnauthorizedException();
+      } catch (error) {
+        if (error instanceof Error) throw error;
+        this.logger.warn("Kakao token refresh failed", {
+          error: (error as Error).message,
+        });
+        throw new UnauthorizedException();
+      }
+    }
+  }
+
+  private async sendKakaoMessage(
+    accessToken: string,
+    content: InterviewQuestionNotification,
+  ): Promise<"success" | "token_expired" | "error"> {
     const response: Response = await fetch(
       "https://kapi.kakao.com/v2/api/talk/memo/default/send",
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${recipient.kakaoAccessToken}`,
+          Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/x-www-form-urlencoded;charset=utf-8",
         },
         body: new URLSearchParams({
@@ -45,32 +93,19 @@ export class KakaoNotificationSender implements NotificationSender {
       },
     );
 
-    if (!response.ok) {
-      const error: any = await response.json();
+    if (response.ok) return "success";
 
-      if (error.code === -401) {
-        this.logger.warn("Kakao token expired", {
-          module: "KakaoNotificationSender",
-          errorCode: error.code,
-        });
+    const error: any = await response.json();
 
-        return;
-      }
+    if (error.code === -401) return "token_expired";
 
-      this.logger.error(
-        "Kakao notification failed",
-        new Error(JSON.stringify(error)),
-        {
-          module: "KakaoNotificationSender",
-          errorCode: error.code,
-        },
-      );
-      throw new Error(`Kakao notification failed: ${error.msg}`);
-    }
+    this.logger.error(
+      "Kakao notification failed",
+      new Error(JSON.stringify(error)),
+      {},
+    );
 
-    this.logger.log("Kakao notification sent", {
-      module: "KakaoNotificationSender",
-    });
+    return "error";
   }
 
   private buildTextTemplate(content: InterviewQuestionNotification) {

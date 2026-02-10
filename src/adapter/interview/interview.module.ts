@@ -5,6 +5,7 @@ import { INTERVIEW_QUESTION_REPOSITORY } from "@/domain/interview/question";
 import { InterviewQuestionPrismaRepository } from "@/adapter/interview/persistence/interview-question-prisma.repository";
 import {
   AI_QUESTION_GENERATOR,
+  KAKAO_TOKEN_REFRESHER,
   NOTIFICATION_RECIPIENT_FINDER,
   NOTIFICATION_SENDER,
 } from "@/application/interview/ports";
@@ -14,8 +15,11 @@ import { InterviewQuestionScheduler } from "@/application/interview/service/inte
 import { EmailNotificationSender } from "@/adapter/interview/notification/email-notification.sender";
 import { KakaoNotificationSender } from "@/adapter/interview/notification/kakao-notification.sender";
 import { NotificationRecipientFinderImpl } from "@/adapter/interview/notification/notification-recipient-finder.impl";
+import { OAuthModule } from "@/adapter/oauth/oauth.module";
+import { KakaoTokenRefresherImpl } from "@/adapter/interview/notification/kakao-token-refresher.impl";
 
 @Module({
+  imports: [OAuthModule],
   controllers: [InterviewController],
   providers: [
     InterviewService,
@@ -42,6 +46,10 @@ import { NotificationRecipientFinderImpl } from "@/adapter/interview/notificatio
     {
       provide: NOTIFICATION_RECIPIENT_FINDER,
       useClass: NotificationRecipientFinderImpl,
+    },
+    {
+      provide: KAKAO_TOKEN_REFRESHER,
+      useClass: KakaoTokenRefresherImpl,
     },
   ],
 })
