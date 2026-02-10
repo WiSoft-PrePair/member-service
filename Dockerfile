@@ -38,4 +38,4 @@ HEALTHCHECK --interval=24h --timeout=10s --start-period=40s --retries=3 \
 
 USER node
 
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]
