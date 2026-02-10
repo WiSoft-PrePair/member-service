@@ -25,7 +25,23 @@ model InterviewQuestion {
   sourceRef    String?  @map("source_ref")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  @@map("interview_question")
+  answers InterviewAnswer[]
+
   @@index([userId])
   @@index([userId, createdAt])
+  @@map("interview_question")
+}
+
+model InterviewAnswer {
+  id          String   @id @default(uuid()) @db.Uuid
+  interviewId String   @map("interview_id") @db.Uuid
+  answer      String   @db.Text
+  answerType  String   @map("answer_type") @db.VarChar(20)
+  mediaUrl    String?  @map("media_url") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  question InterviewQuestion @relation(fields: [interviewId], references: [id])
+
+  @@index([interviewId])
+  @@map("interview_answer")
 }
