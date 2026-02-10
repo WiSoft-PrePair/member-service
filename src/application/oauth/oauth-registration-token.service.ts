@@ -8,6 +8,9 @@ export interface RegistrationTokenData {
   nickname: string;
   provider: OAuthProvider;
   providerId: string;
+  accessToken: string;
+  refreshToken?: string;
+  tokenExpiresIn: number;
 }
 
 @Injectable()
@@ -38,6 +41,9 @@ export class OAuthRegistrationTokenService {
         nickname: payload.nickname,
         provider: payload.provider,
         providerId: payload.providerId,
+        accessToken: payload.accessToken,
+        refreshToken: payload.refreshToken,
+        tokenExpiresIn: payload.tokenExpiresIn,
       };
     } catch (error) {
       if (error instanceof UnauthorizedException) {

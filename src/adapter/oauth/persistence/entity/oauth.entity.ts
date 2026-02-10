@@ -19,4 +19,13 @@ export class OAuthConnectionEntity {
 
   @Property()
   connectedAt!: Date;
+
+  @Property({ nullable: true })
+  accessToken?: string;
+
+  @Property({ nullable: true })
+  refreshToken?: string;
+
+  @Property({ nullable: true })
+  tokenExpiresAt?: Date;
 }

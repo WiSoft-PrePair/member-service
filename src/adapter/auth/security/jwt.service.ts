@@ -19,10 +19,11 @@ export class JwtService implements JwtPort {
     this.accessTokenExpiresIn = this.pareExpiresIn(expiresIn);
   }
 
-  generateAccessToken(memberId: string, email: string): JwtToken {
+  generateAccessToken(memberId: string, email: string, job: string): JwtToken {
     const payload: JwtPayload = {
       sub: memberId,
       email,
+      job,
     };
 
     const accessToken: string = this.jwtService.sign(payload);

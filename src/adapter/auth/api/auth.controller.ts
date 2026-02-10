@@ -36,12 +36,13 @@ export class AuthController {
   @Public()
   @Post("login")
   async login(@Body() loginRequestDto: LoginRequestDto) {
-    const loginResult: { memberId: string; email: string } =
+    const loginResult: { memberId: string; email: string; job: string } =
       await this.authService.login(loginRequestDto);
 
     const accessToken: JwtToken = this.jwtService.generateAccessToken(
       loginResult.memberId,
       loginResult.email,
+      loginResult.job,
     );
 
     const refreshToken: string = await this.refreshTokenService.create(
@@ -78,6 +79,7 @@ export class AuthController {
     const accessToken = this.jwtService.generateAccessToken(
       member.id,
       member.email,
+      member.job,
     );
 
     return {

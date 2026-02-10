@@ -6,12 +6,13 @@ export interface JwtToken {
 export interface JwtPayload {
   sub: string;
   email: string;
+  job: string;
   iat?: number;
   exp?: number;
 }
 
 export interface JwtPort {
-  generateAccessToken(memberId: string, email: string): JwtToken;
+  generateAccessToken(memberId: string, email: string, job: string): JwtToken;
 
   verifyToken(token: string): JwtPayload;
 }

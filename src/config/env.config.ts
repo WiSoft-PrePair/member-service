@@ -24,6 +24,11 @@ export const envSchema = z.object({
 
   LOG_LEVEL: z.enum(["error", "warn", "info", "debug"]).default("info"),
   SERVICE_NAME: z.string().default("prepair-member-service"),
+
+  DATABASE_URL: z.string(),
+
+  OPENAI_API_KEY: z.string(),
+  OPENAI_MODEL: z.string(),
 });
 
 export type Env = z.infer<typeof envSchema>;

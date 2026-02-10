@@ -67,6 +67,26 @@ export class OAuthConnectionRepositoryImpl implements OauthRepository {
     return entities.map((e) => this.mapper.toDomain(e));
   }
 
+  async updateTokens(
+    connectionId: string,
+    tokens: {
+      accessToken: string;
+      refreshToken?: string;
+      tokenExpiresAt: Date;
+    },
+  ): Promise<void> {
+    const entity: OAuthConnectionEntity = await this.em.findOneOrFail(
+      OAuthConnectionEntity,
+      {
+        id: connectionId,
+      },
+    );
+
+    entity.accessToken = tokens.accessToken;
+    entity.refreshToken = tokens.refreshToken;
+    entity.tokenExpiresAt = tokens.tokenExpiresAt;
+  }
+
   async disconnect(id: string): Promise<void> {
     await this.em.nativeDelete(OAuthConnectionEntity, { id });
   }
