@@ -1,4 +1,6 @@
 import {
+  AddPointCommand,
+  AddPointCommandHandler,
   ChangePasswordCommandHandler,
   MemberRegisterCommandHandler,
   MemberUpdateCommandHandler,
@@ -29,6 +31,7 @@ export const CommandHandlers = [
   VerifyEmailCommandHandler,
   VerifyChangeEmailCommandHandler,
   ResetPasswordCommandHandler,
+  AddPointCommandHandler,
 ];
 
 export const QueryHandlers = [GetMemberHandler, GetMemberEmailQueryHandler];

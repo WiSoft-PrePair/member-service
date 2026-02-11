@@ -7,7 +7,8 @@
 **설계 결정사항:**
 - ORM: Prisma (기존 Interview 도메인과 일관성 유지)
 - 아키텍처: Service 패턴 (CQRS 미적용, 기존 Interview 도메인과 동일)
-- AI MSA 통신: HTTP (REST)
+- AI 채점: OpenAI API 직접 호출 (기존 `OpenaiQuestionGeneratorService`와 동일 패턴)
+- Member 포인트 누적: HTTP (REST) — Interview 도메인은 별도 Java MSA 서비스이므로, Member 서비스의 HTTP API를 호출
 - 재답변: 가능 (첫 번째만 채점, 나머지는 연습용)
 
 ---
@@ -33,21 +34,23 @@
               │
               ├─ YES → handleFirstAnswer()
               │         │
-              │         ├─ aiScoring.scoreAnswer()     → AI MSA HTTP 호출
+              │         ├─ aiScoring.scoreAnswer()     → OpenAI API 직접 호출
               │         │   (실패 시 score = 0)
               │         │
               │         ├─ question.markAsAnswered(score) → 질문 상태 ANSWERED + 점수
               │         ├─ questionRepository.update()    → DB 반영
               │         │
-              │         └─ memberPointUpdater.addPoint()  → Member 포인트 누적
-              │             │                               (CommandBus → CQRS)
-              │             └─ AddMemberPointCommand
-              │                 ├─ member.addPoint()
-              │                 ├─ memberRepository.update()
-              │                 ├─ eventStore.append()
-              │                 ├─ em.flush()
-              │                 └─ eventBus.publish(MemberUpdateEvent)
-              │                     └─ MemberUpdateEventHandler → Read Model 동기화
+              │         └─ memberPointUpdate.addPoint()   → Member 포인트 누적
+              │             │                               (HTTP → Member API)
+              │             └─ PATCH /api/members/:id/point
+              │                 └─ MemberController.addPoint()
+              │                     └─ CommandBus → AddMemberPointCommand
+              │                         ├─ member.addPoint()
+              │                         ├─ memberRepository.update()
+              │                         ├─ eventStore.append()
+              │                         ├─ em.flush()
+              │                         └─ eventBus.publish(MemberUpdateEvent)
+              │                             └─ MemberUpdateEventHandler → Read Model 동기화
               │
               └─ NO  → score = null (연습 답변, 채점 없음)
 ```
@@ -62,14 +65,14 @@
 
 #### 1-1. InterviewAnswer 타입 정의
 
-**새 파일: `src/domain/interview/answer/interview-answer.type.ts`**
+**새 파일: `src/domain/interview/answer/types/interview-answer.type.ts`**
 
 ```typescript
-import { AnswerTypeEnum } from "@/domain/interview/enums";
+import { AnswerTypeEnum } from "@/domain/interview/answer/enums/answer-type.enum";
 
 export type InterviewAnswerType = {
   id: string;
-  interviewId: string;
+  questionId: string;
   answer: string;
   answerType: AnswerTypeEnum;
   mediaUrl: string | null;
@@ -77,7 +80,7 @@ export type InterviewAnswerType = {
 };
 
 export type CreateAnswerRequest = {
-  interviewId: string;
+  questionId: string;
   answer: string;
   answerType: AnswerTypeEnum;
   mediaUrl?: string;
@@ -91,13 +94,16 @@ export type CreateAnswerRequest = {
 **새 파일: `src/domain/interview/answer/interview-answer.ts`**
 
 ```typescript
-import { AnswerTypeEnum } from "@/domain/interview/enums";
-import { CreateAnswerRequest, InterviewAnswerType } from "./interview-answer.types";
+import { AnswerTypeEnum } from "@/domain/interview/answer/enums";
+import {
+  CreateAnswerRequest,
+  InterviewAnswerType,
+} from "@/domain/interview/answer/types";
 import { randomUUID } from "crypto";
 
 export class InterviewAnswer {
   readonly id: string;
-  readonly interviewId: string;
+  readonly questionId: string;
   readonly answer: string;
   readonly answerType: AnswerTypeEnum;
   readonly mediaUrl: string | null;
@@ -110,7 +116,7 @@ export class InterviewAnswer {
   public static createAnswer(request: CreateAnswerRequest): InterviewAnswer {
     return new InterviewAnswer({
       id: randomUUID(),
-      interviewId: request.interviewId,
+      questionId: request.questionId,
       answer: request.answer,
       answerType: request.answerType,
       mediaUrl: request.mediaUrl ?? null,
@@ -136,14 +142,14 @@ import { InterviewAnswer } from "./interview-answer";
 
 export interface InterviewAnswerRepository {
   save(answer: InterviewAnswer): Promise<void>;
-  findByInterviewId(interviewId: string): Promise<InterviewAnswer[]>;
-  countByInterviewId(interviewId: string): Promise<number>;
+  findByQuestionId(questionId: string): Promise<InterviewAnswer[]>;
+  countByQuestionId(questionId: string): Promise<number>;
 }
 
 export const INTERVIEW_ANSWER_REPOSITORY: symbol = Symbol("InterviewAnswerRepository");
 ```
 
-> `countByInterviewId`는 첫 번째 답변 판별에 사용할 수 있지만, 실제로는 Question의 `status`로 판별하는 것이 race condition에 더 안전함
+> `countByQuestionId`는 첫 번째 답변 판별에 사용할 수 있지만, 실제로는 Question의 `status`로 판별하는 것이 race condition에 더 안전함
 
 #### 1-4. 도메인 예외
 
@@ -175,7 +181,7 @@ export * from "./interview-question-not-found.exception";
 ```typescript
 export * from "./interview-answer";
 export * from "./interview-answer.repository";
-export * from "./interview-answer.types";
+export * from "./types";
 export * from "./exceptions";
 ```
 
@@ -267,19 +273,21 @@ model InterviewQuestion {
 }
 
 model InterviewAnswer {
-  id          String   @id @default(uuid()) @db.Uuid
-  interviewId String   @map("interview_id") @db.Uuid
-  answer      String   @db.Text
-  answerType  String   @map("answer_type") @db.VarChar(20)
-  mediaUrl    String?  @map("media_url") @db.Text
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id         String   @id @default(uuid()) @db.Uuid
+  questionId String   @map("question_id") @db.Uuid
+  answer     String   @db.Text
+  answerType String   @map("answer_type") @db.VarChar(20)
+  mediaUrl   String?  @map("media_url") @db.Text
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  question    InterviewQuestion @relation(fields: [interviewId], references: [id])
+  question   InterviewQuestion @relation(fields: [questionId], references: [id])
 
   @@map("interview_answer")
-  @@index([interviewId])
+  @@index([questionId])
 }
 ```
+
+> **참고:** 현재 스키마에 `@map("quesiton_id")` 오타가 있음 → `@map("question_id")`로 수정 필요
 
 **실행:**
 
@@ -303,7 +311,7 @@ import {
   type InterviewAnswerRepository,
 } from "@/domain/interview/answer";
 import { PrismaService } from "@/adapter/shared/prisma";
-import { AnswerTypeEnum } from "@/domain/interview/enums";
+import { AnswerTypeEnum } from "@/domain/interview/answer/enums";
 
 @Injectable()
 export class InterviewAnswerPrismaRepository implements InterviewAnswerRepository {
@@ -313,7 +321,7 @@ export class InterviewAnswerPrismaRepository implements InterviewAnswerRepositor
     await this.prisma.interviewAnswer.create({
       data: {
         id: answer.id,
-        interviewId: answer.interviewId,
+        questionId: answer.questionId,
         answer: answer.answer,
         answerType: answer.answerType,
         mediaUrl: answer.mediaUrl,
@@ -322,16 +330,16 @@ export class InterviewAnswerPrismaRepository implements InterviewAnswerRepositor
     });
   }
 
-  async findByInterviewId(interviewId: string): Promise<InterviewAnswer[]> {
+  async findByQuestionId(questionId: string): Promise<InterviewAnswer[]> {
     const records = await this.prisma.interviewAnswer.findMany({
-      where: { interviewId },
+      where: { questionId },
       orderBy: { createdAt: "asc" },
     });
 
     return records.map((r) =>
       InterviewAnswer.of({
         id: r.id,
-        interviewId: r.interviewId,
+        questionId: r.questionId,
         answer: r.answer,
         answerType: r.answerType as AnswerTypeEnum,
         mediaUrl: r.mediaUrl,
@@ -340,9 +348,9 @@ export class InterviewAnswerPrismaRepository implements InterviewAnswerRepositor
     );
   }
 
-  async countByInterviewId(interviewId: string): Promise<number> {
+  async countByQuestionId(questionId: string): Promise<number> {
     return this.prisma.interviewAnswer.count({
-      where: { interviewId },
+      where: { questionId },
     });
   }
 }
@@ -405,9 +413,15 @@ export type ScoringRequest = {
   answer: string;
 };
 
+export type ScoringFeedback = {
+  strengths: string[];      // 잘한 점
+  improvements: string[];   // 개선할 점
+  recommendations: string[]; // 추천 학습
+};
+
 export type ScoringResult = {
-  score: number;       // 0-100 범위
-  feedback?: string;   // AI 피드백 (선택)
+  score: number;              // 0-100 범위
+  feedback: ScoringFeedback;  // 구조화된 피드백
 };
 
 export interface AIScoringPort {
@@ -419,19 +433,19 @@ export const AI_SCORING_PORT: symbol = Symbol("AIScoringPort");
 
 > **참고 패턴:** `src/application/interview/ports/ai-question-genrator.port.ts`
 
-#### 4-2. Member Point Updater Port 정의 (크로스 도메인 경계)
+#### 4-2. Member Point Update Port 정의 (크로스 도메인 경계)
 
-**새 파일: `src/application/interview/ports/member-point-updater.port.ts`**
+**새 파일: `src/application/interview/ports/member-point-update.port.ts`**
 
 ```typescript
-export interface MemberPointUpdater {
+export interface MemberPointUpdate {
   addPoint(memberId: string, point: number): Promise<void>;
 }
 
-export const MEMBER_POINT_UPDATER: symbol = Symbol("MemberPointUpdater");
+export const MEMBER_POINT_UPDATE: symbol = Symbol("MemberPointUpdate");
 ```
 
-> Interview 도메인은 이 포트 인터페이스만 알고, Member CQRS 내부는 모름 (헥사고날 원칙)
+> Interview 도메인은 이 포트 인터페이스만 알고, Member 서비스 내부(CQRS, DB 등)는 모름 (헥사고날 원칙). 실제로 MSA 간 HTTP 통신으로 연결됨.
 
 #### 4-3. Ports barrel export 업데이트
 
@@ -440,7 +454,7 @@ export const MEMBER_POINT_UPDATER: symbol = Symbol("MemberPointUpdater");
 ```typescript
 export * from "./ai-question-genrator.port";
 export * from "./ai-scoring.port";                 // 추가
-export * from "./member-point-updater.port";        // 추가
+export * from "./member-point-update.port";         // 추가
 export * from "./notification-recipient-finder.port";
 export * from "./notification-sender.port";
 export * from "./kakao-token-refresher.port";
@@ -453,82 +467,94 @@ export * from "./kakao-token-refresher.port";
 ```typescript
 import { Inject, Injectable } from "@nestjs/common";
 import {
-  INTERVIEW_QUESTION_REPOSITORY,
-  type InterviewQuestionRepository,
-} from "@/domain/interview/question";
-import {
   INTERVIEW_ANSWER_REPOSITORY,
   InterviewAnswer,
   type InterviewAnswerRepository,
+  InterviewQuestionNotFoundException,
 } from "@/domain/interview/answer";
-import { InterviewQuestionNotFoundException } from "@/domain/interview/answer/exceptions";
+import {
+  INTERVIEW_QUESTION_REPOSITORY,
+  InterviewQuestion,
+  type InterviewQuestionRepository,
+} from "@/domain/interview/question";
 import {
   AI_SCORING_PORT,
   type AIScoringPort,
+  MEMBER_POINT_UPDATE,
+  type MemberPointUpdate,
   type ScoringResult,
-  MEMBER_POINT_UPDATER,
-  type MemberPointUpdater,
+  type ScoringFeedback,
 } from "@/application/interview/ports";
 import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
-import { AnswerTypeEnum } from "@/domain/interview/enums";
-import type { InterviewQuestion } from "@/domain/interview/question";
+import { AnswerTypeEnum } from "@/domain/interview/answer/enums";
 
 @Injectable()
 export class InterviewAnswerService {
   constructor(
     @Inject(INTERVIEW_ANSWER_REPOSITORY)
-    private readonly answerRepository: InterviewAnswerRepository,
+    private readonly interviewAnswerRepository: InterviewAnswerRepository,
     @Inject(INTERVIEW_QUESTION_REPOSITORY)
-    private readonly questionRepository: InterviewQuestionRepository,
+    private readonly interviewQuestionRepository: InterviewQuestionRepository,
     @Inject(AI_SCORING_PORT)
     private readonly aiScoring: AIScoringPort,
-    @Inject(MEMBER_POINT_UPDATER)
-    private readonly memberPointUpdater: MemberPointUpdater,
+    @Inject(MEMBER_POINT_UPDATE)
+    private readonly memberPointUpdate: MemberPointUpdate,
     @Inject(LOGGER)
     private readonly logger: ILogger,
   ) {}
 
   async submitAnswer(
     userId: string,
-    interviewId: string,
+    questionId: string,
     answer: string,
     answerType: AnswerTypeEnum,
     mediaUrl?: string,
-  ): Promise<{ answerId: string; score: number | null; feedback?: string }> {
+  ) {
     // 1. 질문 조회 + 소유권 검증
-    const question = await this.questionRepository.findById(interviewId);
+    const question: InterviewQuestion | null =
+      await this.interviewQuestionRepository.findById(questionId);
+
     if (!question || question.userId !== userId) {
-      throw new InterviewQuestionNotFoundException(interviewId);
+      throw new InterviewQuestionNotFoundException(questionId);
     }
 
     // 2. 답변 저장 (항상 성공해야 함 — 채점 전 먼저 저장)
-    const interviewAnswer = InterviewAnswer.createAnswer({
-      interviewId,
+    const interviewAnswer: InterviewAnswer = InterviewAnswer.createAnswer({
+      questionId,
       answer,
       answerType,
       mediaUrl,
     });
-    await this.answerRepository.save(interviewAnswer);
+    await this.interviewAnswerRepository.save(interviewAnswer);
 
     // 3. 첫 번째 답변인 경우에만 채점 프로세스 실행
     let score: number | null = null;
-    let feedback: string | undefined;
+    let feedback: ScoringFeedback | null = null;
 
     if (question.isFirstAnswer()) {
-      const result = await this.handleFirstAnswer(question, answer);
+      const result: { score: number; feedback: ScoringFeedback } =
+        await this.handleFirstAnswer(question, answer);
       score = result.score;
       feedback = result.feedback;
     }
 
-    return { answerId: interviewAnswer.id, score, feedback };
+    return {
+      answerId: interviewAnswer.id,
+      score,
+      feedback,
+    };
   }
 
   private async handleFirstAnswer(
     question: InterviewQuestion,
     answer: string,
-  ): Promise<{ score: number; feedback?: string }> {
-    let score = 0;
-    let feedback: string | undefined;
+  ): Promise<{ score: number; feedback: ScoringFeedback }> {
+    let score: number = 0;
+    let feedback: ScoringFeedback = {
+      strengths: [],
+      improvements: [],
+      recommendations: [],
+    };
 
     // 3a. AI 채점 (실패해도 답변은 이미 저장됨)
     try {
@@ -537,29 +563,34 @@ export class InterviewAnswerService {
         question: question.question,
         answer,
       });
+
       score = result.score;
       feedback = result.feedback;
     } catch (error) {
       this.logger.error(
-        "AI 채점 실패, 점수 0으로 기본 설정",
+        `AI 채점 실패, 점수 0으로 기본 설정`,
         error instanceof Error ? error : undefined,
         { module: "InterviewAnswerService", questionId: question.id },
       );
     }
 
     // 3b. 질문 상태 ANSWERED + 점수 업데이트
-    const updatedQuestion = question.markAsAnswered(score);
-    await this.questionRepository.update(updatedQuestion);
+    const updatedQuestion: InterviewQuestion = question.marksAnswered(score);
+    await this.interviewQuestionRepository.update(updatedQuestion);
 
-    // 3c. Member 포인트 누적 (크로스 도메인)
+    // 3c. Member 포인트 누적 (크로스 도메인 — HTTP 통신)
     if (score > 0) {
       try {
-        await this.memberPointUpdater.addPoint(question.userId, score);
+        await this.memberPointUpdate.addPoint(question.userId, score);
       } catch (error) {
         this.logger.error(
-          "회원 포인트 업데이트 실패",
+          `회원 포인트 업데이트 실패`,
           error instanceof Error ? error : undefined,
-          { module: "InterviewAnswerService", userId: question.userId, score },
+          {
+            module: "InterviewAnswerService",
+            userId: question.userId,
+            score,
+          },
         );
         // 포인트 실패해도 답변+점수는 유지 (eventual consistency)
       }
@@ -568,8 +599,8 @@ export class InterviewAnswerService {
     return { score, feedback };
   }
 
-  async getAnswersByQuestion(interviewId: string): Promise<InterviewAnswer[]> {
-    return this.answerRepository.findByInterviewId(interviewId);
+  async getAnswerByQuestion(questionId: string): Promise<InterviewAnswer[]> {
+    return this.interviewAnswerRepository.findByQuestionId(questionId);
   }
 }
 ```
@@ -577,111 +608,165 @@ export class InterviewAnswerService {
 **핵심 설계 포인트:**
 - `question.isFirstAnswer()` — 도메인 로직으로 첫 답변 판별 (`status === UNANSWERED`)
 - AI 채점 실패 시 → 점수 0으로 저장, 답변은 유지
-- Member 포인트 실패 시 → 로그만 남기고 답변+점수는 유지
+- Member 서비스 HTTP 통신 실패 시 → 로그만 남기고 답변+점수는 유지 (eventual consistency)
 - 답변 저장은 채점 전에 먼저 실행 (데이터 유실 방지)
 
 ---
 
-### Phase 5: AI Adapter + Cross-Domain Bridge
+### Phase 5: AI Adapter + Cross-Domain HTTP Bridge
 
-#### 5-1. AI Scoring HTTP Adapter (실제 구현)
+#### 5-1. AI Scoring OpenAI Adapter
 
-**새 파일: `src/adapter/interview/ai/ai-scoring-http.adapter.ts`**
+**새 파일: `src/adapter/interview/ai/ai-scoring-openai.adapter.ts`**
+
+기존 `OpenaiQuestionGeneratorService`와 동일한 패턴으로 OpenAI API를 직접 호출한다.
 
 ```typescript
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { OpenAI } from "openai";
 import {
   type AIScoringPort,
   type ScoringRequest,
   type ScoringResult,
+  type ScoringFeedback,
 } from "@/application/interview/ports";
 
 @Injectable()
-export class AIScoringHttpAdapter implements AIScoringPort {
-  private readonly baseUrl: string;
-  private readonly logger = new Logger(AIScoringHttpAdapter.name);
+export class AIScoringOpenaiAdapter implements AIScoringPort {
+  private readonly client: OpenAI;
+  private readonly model: string;
+  private readonly logger: Logger = new Logger(AIScoringOpenaiAdapter.name);
 
   constructor(private readonly configService: ConfigService) {
-    this.baseUrl = this.configService.getOrThrow<string>("AI_SCORING_SERVICE_URL");
+    this.client = new OpenAI({
+      apiKey: this.configService.getOrThrow<string>("OPENAI_API_KEY"),
+    });
+    this.model = this.configService.getOrThrow<string>("OPENAI_MODEL");
   }
 
   async scoreAnswer(request: ScoringRequest): Promise<ScoringResult> {
-    const response = await fetch(`${this.baseUrl}/api/scoring`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        questionId: request.questionId,
-        question: request.question,
-        answer: request.answer,
-      }),
-      signal: AbortSignal.timeout(30_000), // 30초 타임아웃
+    this.logger.log("AI scoring started", {
+      module: "AIScoringOpenaiAdapter",
+      questionId: request.questionId,
     });
 
-    if (!response.ok) {
-      throw new Error(`AI scoring service returned ${response.status}`);
+    const response = await this.client.chat.completions.create({
+      model: this.model,
+      messages: [
+        {
+          role: "system",
+          content: this.buildSystemPrompt(),
+        },
+        {
+          role: "user",
+          content: this.buildUserPrompt(request.question, request.answer),
+        },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.3,
+    });
+
+    const content: string | null = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error("OpenAI returned empty response");
     }
 
-    const data = (await response.json()) as { score: number; feedback?: string };
-    return { score: data.score, feedback: data.feedback };
+    const parsed = JSON.parse(content) as {
+      score: number;
+      strengths: string[];
+      improvements: string[];
+      recommendations: string[];
+    };
+
+    this.logger.log("AI scoring completed", {
+      module: "AIScoringOpenaiAdapter",
+      questionId: request.questionId,
+      score: parsed.score,
+    });
+
+    const feedback: ScoringFeedback = {
+      strengths: parsed.strengths,
+      improvements: parsed.improvements,
+      recommendations: parsed.recommendations,
+    };
+
+    return { score: parsed.score, feedback };
+  }
+
+  private buildSystemPrompt(): string {
+    return `당신은 10년차 면접관 경력의 면접 채점 전문가입니다.
+주어진 면접 질문과 답변을 평가하여 JSON 형식으로 채점 결과를 반환합니다.
+
+채점 기준:
+- 질문의 핵심을 정확히 이해했는지
+- 논리적이고 구조적으로 답변했는지
+- 구체적인 사례나 근거를 제시했는지
+- 실무 경험이나 깊이 있는 이해를 보여주는지
+
+부연 설명 없이 다음 JSON 형식으로만 응답하세요:
+{
+  "score": 0~100 사이의 정수,
+  "strengths": ["잘한 점 1", "잘한 점 2"],
+  "improvements": ["개선할 점 1", "개선할 점 2"],
+  "recommendations": ["추천 학습 주제 1", "추천 학습 주제 2"]
+}`.trim();
+  }
+
+  private buildUserPrompt(question: string, answer: string): string {
+    return `
+## 면접 질문
+${question}
+
+## 지원자 답변
+${answer}
+
+위 질문과 답변을 채점해주세요.`.trim();
   }
 }
 ```
 
-#### 5-2. AI Scoring Stub Adapter (개발용)
+> **참고 패턴:** `src/adapter/interview/ai/openai-question-generator.service.ts` — `new OpenAI({ apiKey })`, `response_format: { type: "json_object" }`, `configService.getOrThrow("OPENAI_MODEL")`
 
-**새 파일: `src/adapter/interview/ai/ai-scoring-stub.adapter.ts`**
+#### 5-2. Member Point Update HTTP Adapter (MSA 통신)
+
+**새 파일: `src/adapter/interview/bridge/member-point-update-http.adapter.ts`**
 
 ```typescript
 import { Injectable, Logger } from "@nestjs/common";
-import {
-  type AIScoringPort,
-  type ScoringRequest,
-  type ScoringResult,
-} from "@/application/interview/ports";
+import { ConfigService } from "@nestjs/config";
+import type { MemberPointUpdate } from "@/application/interview/ports";
 
 @Injectable()
-export class AIScoringStubAdapter implements AIScoringPort {
-  private readonly logger = new Logger(AIScoringStubAdapter.name);
+export class MemberPointUpdateHttpAdapter implements MemberPointUpdate {
+  private readonly baseUrl: string;
+  private readonly logger = new Logger(MemberPointUpdateHttpAdapter.name);
 
-  async scoreAnswer(request: ScoringRequest): Promise<ScoringResult> {
-    this.logger.warn(
-      `[STUB] AI 채점 스텁 사용 중 - questionId: ${request.questionId}`,
-    );
-
-    const score = Math.floor(Math.random() * 51) + 50; // 50~100 랜덤
-
-    return {
-      score,
-      feedback: "[STUB] 개발용 임시 점수입니다.",
-    };
+  constructor(private readonly configService: ConfigService) {
+    this.baseUrl = this.configService.getOrThrow<string>("MEMBER_SERVICE_URL");
   }
-}
-```
-
-> AI MSA가 준비되면 환경변수 `AI_SCORING_USE_STUB=false`로 전환
-
-#### 5-3. Member Point Updater Adapter (CommandBus 브릿지)
-
-**새 파일: `src/adapter/interview/bridge/member-point-updater.adapter.ts`**
-
-```typescript
-import { Injectable } from "@nestjs/common";
-import { CommandBus } from "@nestjs/cqrs";
-import type { MemberPointUpdater } from "@/application/interview/ports";
-import { AddMemberPointCommand } from "@/application/member/command";
-
-@Injectable()
-export class MemberPointUpdaterAdapter implements MemberPointUpdater {
-  constructor(private readonly commandBus: CommandBus) {}
 
   async addPoint(memberId: string, point: number): Promise<void> {
-    await this.commandBus.execute(new AddMemberPointCommand(memberId, point));
+    const response = await fetch(
+      `${this.baseUrl}/api/members/${memberId}/point`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ point }),
+        signal: AbortSignal.timeout(10_000), // 10초 타임아웃
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Member point update failed: ${response.status} ${response.statusText}`,
+      );
+    }
   }
 }
 ```
 
-> **헥사고날 아키텍처 핵심:** Interview 서비스는 `MemberPointUpdater` 포트만 알고, 내부적으로 `CommandBus`를 통해 Member CQRS에 위임. 포트/어댑터 경계를 깨끗하게 유지.
+> **MSA 아키텍처 핵심:** Interview 서비스(Java MSA)는 `MemberPointUpdate` 포트만 알고, HTTP를 통해 Member 서비스(NestJS)의 API를 호출. 포트/어댑터 경계를 깨끗하게 유지하면서 MSA 간 통신을 수행.
 
 ---
 
@@ -799,7 +884,47 @@ export class AddMemberPointCommandHandler
 > **참고 패턴:** `src/application/member/command/member-update.command.ts` — 동일한 CQRS 흐름
 > (find → 도메인 로직 → save → eventStore → flush → eventBus → clear)
 
-#### 6-3. Member Command 등록
+#### 6-3. Member API 엔드포인트 추가 (Interview → Member HTTP 통신 수신)
+
+**새 파일: `src/adapter/member/api/dto/add-point.dto.ts`**
+
+```typescript
+import { IsInt, Min } from "class-validator";
+
+export class AddPointDto {
+  @IsInt()
+  @Min(1)
+  point!: number;
+}
+```
+
+**수정: `src/adapter/member/api/member.controller.ts`** — 포인트 추가 엔드포인트 추가:
+
+```typescript
+// 추가 import
+import { Patch, Param } from "@nestjs/common";
+import { CommandBus } from "@nestjs/cqrs";
+import { AddMemberPointCommand } from "@/application/member/command";
+import { AddPointDto } from "@/adapter/member/api/dto/add-point.dto";
+
+// constructor에 CommandBus 주입 추가:
+// private readonly commandBus: CommandBus,
+
+@Patch(":id/point")
+async addPoint(
+  @Param("id") memberId: string,
+  @Body() dto: AddPointDto,
+) {
+  await this.commandBus.execute(
+    new AddMemberPointCommand(memberId, dto.point),
+  );
+  return { success: true };
+}
+```
+
+> **MSA 수신 엔드포인트:** Interview 서비스가 HTTP로 호출하는 진입점. 내부적으로 CQRS CommandBus에 위임하여 기존 도메인 로직과 Event Sourcing을 그대로 활용.
+
+#### 6-4. Member Command 등록
 
 **수정: `src/application/member/command/index.ts`** — 추가:
 
@@ -832,7 +957,7 @@ import { IsEnum, IsOptional, IsString, IsUUID, MinLength } from "class-validator
 
 export class SubmitAnswerDto {
   @IsUUID()
-  interviewId!: string;
+  questionId!: string;
 
   @IsString()
   @MinLength(1)
@@ -869,7 +994,7 @@ async submitAnswer(
 ) {
   const result = await this.interviewAnswerService.submitAnswer(
     user.memberId,
-    dto.interviewId,
+    dto.questionId,
     dto.answer,
     dto.answerType,
     dto.mediaUrl,
@@ -882,7 +1007,7 @@ async getAnswers(
   @CurrentUser() user: User,
   @Param("questionId") questionId: string,
 ) {
-  const answers = await this.interviewAnswerService.getAnswersByQuestion(questionId);
+  const answers = await this.interviewAnswerService.getAnswerByQuestion(questionId);
   return {
     answers: answers.map((a) => ({
       id: a.id,
@@ -901,18 +1026,15 @@ async getAnswers(
 
 ```typescript
 // 추가 import
-import { CqrsModule } from "@nestjs/cqrs";
-import { ConfigService } from "@nestjs/config";
 import { InterviewAnswerService } from "@/application/interview/service/interview-answer.service";
 import { INTERVIEW_ANSWER_REPOSITORY } from "@/domain/interview/answer";
 import { InterviewAnswerPrismaRepository } from "@/adapter/interview/persistence/interview-answer-prisma.repository";
-import { AI_SCORING_PORT, MEMBER_POINT_UPDATER } from "@/application/interview/ports";
-import { AIScoringStubAdapter } from "@/adapter/interview/ai/ai-scoring-stub.adapter";
-import { AIScoringHttpAdapter } from "@/adapter/interview/ai/ai-scoring-http.adapter";
-import { MemberPointUpdaterAdapter } from "@/adapter/interview/bridge/member-point-updater.adapter";
+import { AI_SCORING_PORT, MEMBER_POINT_UPDATE } from "@/application/interview/ports";
+import { AIScoringOpenaiAdapter } from "@/adapter/interview/ai/ai-scoring-openai.adapter";
+import { MemberPointUpdateHttpAdapter } from "@/adapter/interview/bridge/member-point-update-http.adapter";
 
 @Module({
-  imports: [OAuthModule, CqrsModule],  // CqrsModule 추가 (CommandBus 사용)
+  imports: [OAuthModule],  // CqrsModule 불필요 (HTTP 통신으로 대체)
   controllers: [InterviewController],
   providers: [
     InterviewService,
@@ -934,19 +1056,12 @@ import { MemberPointUpdaterAdapter } from "@/adapter/interview/bridge/member-poi
       useClass: OpenaiQuestionGeneratorService,
     },
     {
-      provide: AI_SCORING_PORT,  // 추가 — 환경변수로 Stub/HTTP 전환
-      useFactory: (configService: ConfigService) => {
-        const useStub = configService.get<string>("AI_SCORING_USE_STUB", "true");
-        if (useStub === "true") {
-          return new AIScoringStubAdapter();
-        }
-        return new AIScoringHttpAdapter(configService);
-      },
-      inject: [ConfigService],
+      provide: AI_SCORING_PORT,  // 추가 — OpenAI 직접 호출
+      useClass: AIScoringOpenaiAdapter,
     },
     {
-      provide: MEMBER_POINT_UPDATER,  // 추가
-      useClass: MemberPointUpdaterAdapter,
+      provide: MEMBER_POINT_UPDATE,  // 추가 — HTTP로 Member 서비스 호출
+      useClass: MemberPointUpdateHttpAdapter,
     },
     {
       provide: NOTIFICATION_SENDER,
@@ -977,16 +1092,16 @@ export class InterviewModule {}
 
 ```typescript
 // envSchema 객체에 추가:
-AI_SCORING_SERVICE_URL: z.string().optional().default("http://localhost:3001"),
-AI_SCORING_USE_STUB: z.string().optional().default("true"),
+MEMBER_SERVICE_URL: z.string().optional().default("http://localhost:3000"),
 ```
+
+> **참고:** `OPENAI_API_KEY`와 `OPENAI_MODEL`은 이미 설정되어 있으므로 AI 채점에 재사용. 별도의 `AI_SCORING_SERVICE_URL`, `AI_SCORING_USE_STUB` 환경변수는 불필요.
 
 **.env 파일에 추가:**
 
 ```
-# AI Scoring Service
-AI_SCORING_SERVICE_URL=http://localhost:3001
-AI_SCORING_USE_STUB=true
+# Member Service (MSA 간 HTTP 통신)
+MEMBER_SERVICE_URL=http://localhost:3000
 ```
 
 ---
@@ -996,8 +1111,9 @@ AI_SCORING_USE_STUB=true
 | 시나리오 | 동작 | HTTP Status |
 |---|---|---|
 | 질문 미존재 / 타인 질문 | `InterviewQuestionNotFoundException` 발생 | 400 |
-| AI 채점 서비스 실패 | 로그 기록 + score=0으로 저장, 답변 유지 | 200 |
-| Member 포인트 업데이트 실패 | 로그 기록, 답변+점수는 유지 | 200 |
+| AI 채점 실패 (OpenAI API 오류) | 로그 기록 + score=0으로 저장, 답변 유지 | 200 |
+| Member 서비스 HTTP 통신 실패 (타임아웃/5xx) | 로그 기록, 답변+점수는 유지 (eventual consistency) | 200 |
+| Member 서비스 HTTP 4xx 응답 | 로그 기록, 답변+점수는 유지 | 200 |
 | DTO 유효성 검증 실패 | class-validator ValidationPipe | 400 |
 | 동시 첫 답변 (race condition) | `question.isFirstAnswer()` 체크로 방어 | 200 |
 
@@ -1005,31 +1121,31 @@ AI_SCORING_USE_STUB=true
 
 ## 파일 목록 요약
 
-### 새로 생성 (15개)
+### 새로 생성 (14개)
 
 | 파일 | 계층 | 설명 |
 |---|---|---|
-| `src/domain/interview/answer/interview-answer.type.ts` | Domain | 타입 정의 |
+| `src/domain/interview/answer/types/interview-answer.type.ts` | Domain | 타입 정의 |
 | `src/domain/interview/answer/interview-answer.ts` | Domain | 엔티티 |
 | `src/domain/interview/answer/interview-answer.repository.ts` | Domain | Repository 인터페이스 |
 | `src/domain/interview/answer/exceptions/interview-question-not-found.exception.ts` | Domain | 예외 |
 | `src/domain/interview/answer/exceptions/index.ts` | Domain | Barrel export |
 | `src/domain/interview/answer/index.ts` | Domain | Barrel export |
 | `src/application/interview/ports/ai-scoring.port.ts` | Application | AI 채점 포트 |
-| `src/application/interview/ports/member-point-updater.port.ts` | Application | 크로스 도메인 포트 |
+| `src/application/interview/ports/member-point-update.port.ts` | Application | 크로스 도메인 포트 (HTTP) |
 | `src/application/interview/service/interview-answer.service.ts` | Application | 서비스 |
 | `src/adapter/interview/api/dto/submit-answer.dto.ts` | Adapter | DTO |
-| `src/adapter/interview/ai/ai-scoring-http.adapter.ts` | Adapter | AI HTTP 어댑터 |
-| `src/adapter/interview/ai/ai-scoring-stub.adapter.ts` | Adapter | AI Stub 어댑터 |
+| `src/adapter/interview/ai/ai-scoring-openai.adapter.ts` | Adapter | AI OpenAI 어댑터 |
 | `src/adapter/interview/persistence/interview-answer-prisma.repository.ts` | Adapter | Prisma Repository |
-| `src/adapter/interview/bridge/member-point-updater.adapter.ts` | Adapter | CommandBus 브릿지 |
+| `src/adapter/interview/bridge/member-point-update-http.adapter.ts` | Adapter | Member 서비스 HTTP 어댑터 |
+| `src/adapter/member/api/dto/add-point.dto.ts` | Adapter (Member) | 포인트 추가 DTO |
 | `src/application/member/command/add-member-point.command.ts` | Application (Member) | CQRS Command |
 
-### 수정 (11개)
+### 수정 (13개)
 
 | 파일 | 변경 내용 |
 |---|---|
-| `src/domain/interview/question/interview-question.ts` | `of()`, `isFirstAnswer()`, `markAsAnswered()` 추가 |
+| `src/domain/interview/question/interview-question.ts` | `of()`, `isFirstAnswer()`, `marksAnswered()` 추가 |
 | `src/domain/interview/question/interview-question.repository.ts` | `findById()`, `update()` 추가 |
 | `src/domain/interview/indext.ts` | answer barrel export 추가 |
 | `src/domain/member/member.ts` | `addPoint()` 메서드 추가 |
@@ -1037,10 +1153,11 @@ AI_SCORING_USE_STUB=true
 | `src/application/member/command/index.ts` | `AddMemberPointCommand` export 추가 |
 | `src/adapter/interview/api/interview.controller.ts` | 답변 제출/조회 엔드포인트 추가 |
 | `src/adapter/interview/persistence/interview-question-prisma.repository.ts` | `findById()`, `update()` 추가 |
-| `src/adapter/interview/interview.module.ts` | 새 providers 등록, CqrsModule import |
+| `src/adapter/interview/interview.module.ts` | 새 providers 등록 (CqrsModule 불필요) |
+| `src/adapter/member/api/member.controller.ts` | `PATCH :id/point` 엔드포인트 추가 |
 | `src/adapter/member/member.handlers.ts` | `AddMemberPointCommandHandler` 등록 |
-| `prisma/schema.prisma` | `InterviewAnswer` 모델 + 관계 추가 |
-| `src/config/env.config.ts` | AI scoring 환경변수 추가 |
+| `prisma/schema.prisma` | `InterviewAnswer` 모델 + 관계 추가, `quesiton_id` 오타 수정 |
+| `src/config/env.config.ts` | `MEMBER_SERVICE_URL` 환경변수 추가 |
 
 ---
 
@@ -1063,18 +1180,27 @@ curl -X POST http://localhost:3000/api/interview/answer \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{
-    "interviewId": "<question-uuid>",
+    "questionId": "<question-uuid>",
     "answer": "의존성 주입은 객체 간 결합도를 낮추기 위한 디자인 패턴으로...",
     "answerType": "text"
   }'
-# 기대 응답: { "answerId": "...", "score": 75, "feedback": "..." }
+# 기대 응답:
+# {
+#   "answerId": "...",
+#   "score": 75,
+#   "feedback": {
+#     "strengths": ["핵심 개념을 정확히 이해하고 있음"],
+#     "improvements": ["구체적인 사례 추가 필요"],
+#     "recommendations": ["SOLID 원칙 학습 권장"]
+#   }
+# }
 ```
 
 **답변 제출 (두 번째 — 연습, 채점 없음):**
 
 ```bash
 # 같은 질문에 다시 답변
-# 기대 응답: { "answerId": "...", "score": null }
+# 기대 응답: { "answerId": "...", "score": null, "feedback": null }
 ```
 
 **답변 목록 조회:**
@@ -1084,11 +1210,20 @@ curl http://localhost:3000/api/interview/question/<question-uuid>/answers \
   -H "Authorization: Bearer <token>"
 ```
 
+**Member 포인트 추가 API (Member 서비스 직접 호출 검증):**
+
+```bash
+curl -X PATCH http://localhost:3000/api/members/<member-uuid>/point \
+  -H "Content-Type: application/json" \
+  -d '{ "point": 75 }'
+# 기대 응답: { "success": true }
+```
+
 ### 3. DB 검증 (PostgreSQL)
 
 ```sql
 -- 답변 저장 확인
-SELECT * FROM interview_answer WHERE interview_id = '<question-uuid>';
+SELECT * FROM interview_answer WHERE question_id = '<question-uuid>';
 
 -- 질문 상태 + 점수 변경 확인
 SELECT id, status, score FROM interview_question WHERE id = '<question-uuid>';

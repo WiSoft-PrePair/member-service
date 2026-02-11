@@ -23,7 +23,7 @@ export class InterviewAnswerPrismaRepository implements InterviewAnswerRepositor
     });
   }
 
-  async findByInterviewId(questionId: string): Promise<InterviewAnswer[]> {
+  async findByQuestionId(questionId: string): Promise<InterviewAnswer[]> {
     const records = await this.prisma.interviewAnswer.findMany({
       where: { questionId },
       orderBy: { createdAt: "asc" },

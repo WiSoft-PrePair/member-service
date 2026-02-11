@@ -9,6 +9,7 @@ import {
   Query,
 } from "@nestjs/common";
 import {
+  AddPointDto,
   ChangeEmailDto,
   type ChangePasswordDto,
   type RegisterMemberDto,
@@ -19,6 +20,7 @@ import {
 } from "@/adapter/member/api/dto";
 import { CommandBus, QueryBus } from "@nestjs/cqrs";
 import {
+  AddPointCommand,
   ChangeEmailCommand,
   ChangePasswordCommand,
   MemberRegisterCommand,
@@ -176,6 +178,13 @@ export class MemberController {
     );
 
     return { newEmail: result };
+  }
+
+  @Public()
+  @Patch(":id/point")
+  async addPoint(@Param("id") memberId: string, @Body() dto: AddPointDto) {
+    await this.commandBus.execute(new AddPointCommand(memberId, dto.point));
+    return { success: true };
   }
 
   @Delete()

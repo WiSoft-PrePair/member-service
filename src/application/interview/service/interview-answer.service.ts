@@ -126,7 +126,7 @@ export class InterviewAnswerService {
     return { score, feedback };
   }
 
-  async getAnswerByQuestion(interviewId: string): Promise<InterviewAnswer[]> {
-    return this.interviewAnswerRepository.findByInterviewId(interviewId);
+  async getAnswerByQuestion(questionId: string): Promise<InterviewAnswer[]> {
+    return this.interviewAnswerRepository.findByQuestionId(questionId);
   }
 }

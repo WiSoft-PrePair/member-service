@@ -1,22 +1,28 @@
 import {
+  Body,
   Controller,
   DefaultValuePipe,
   Get,
+  Param,
   ParseIntPipe,
   Post,
   Query,
 } from "@nestjs/common";
 import { InterviewService } from "@/application/interview/service/interview.service";
+import { InterviewAnswerService } from "@/application/interview/service/interview-answer.service";
 import { CurrentUser } from "@/adapter/shared/api/decorators/current-user.decorator";
 import type { User } from "@/adapter/shared/api/types/user";
 import { InterviewQuestion } from "@/generated/prisma/client";
 import { InterviewQuestionScheduler } from "@/application/interview/service/interview-question-scheduler";
 import { Public } from "@/adapter/shared/api/decorators/public.decorator";
+import { SubmitAnswerDto } from "@/adapter/interview/api/dto/submit-answer.dto";
+import { InterviewAnswer } from "@/domain/interview/answer";
 
 @Controller("api/interview")
 export class InterviewController {
   constructor(
     private readonly interviewService: InterviewService,
+    private readonly interviewAnswerService: InterviewAnswerService,
     private readonly scheduler: InterviewQuestionScheduler,
   ) {}
 
@@ -58,5 +64,36 @@ export class InterviewController {
   async triggerWeekly() {
     await this.scheduler.handleWeeklyNotification();
     return { success: true };
+  }
+
+  @Post("answer")
+  async submitAnswer(@CurrentUser() user: User, @Body() dto: SubmitAnswerDto) {
+    const result = await this.interviewAnswerService.submitAnswer(
+      user.memberId,
+      dto.questionId,
+      dto.answer,
+      dto.answerType,
+      dto.mediaUrl,
+    );
+    return result;
+  }
+
+  @Get(":questionId/answers")
+  async getAnswers(
+    @CurrentUser() user: User,
+    @Param("questionId") questionId: string,
+  ) {
+    const answers: InterviewAnswer[] =
+      await this.interviewAnswerService.getAnswerByQuestion(questionId);
+
+    return {
+      answers: answers.map((a) => ({
+        id: a.id,
+        answer: a.answer,
+        answerType: a.answerType,
+        mediaUrl: a.mediaUrl,
+        createdAt: a.createdAt,
+      })),
+    };
   }
 }

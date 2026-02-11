@@ -12,12 +12,15 @@ export class MemberPointUpdateAdapter implements MemberPointUpdate {
   }
 
   async addPoint(memberId: string, point: number): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/api/members/point}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ point }),
-      signal: AbortSignal.timeout(10_000),
-    });
+    const response: Response = await fetch(
+      `${this.baseUrl}/api/members/${memberId}/point}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ point }),
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
 
     if (!response.ok) {
       throw new Error(

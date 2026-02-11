@@ -34,7 +34,7 @@ model InterviewQuestion {
 
 model InterviewAnswer {
   id         String   @id @default(uuid()) @db.Uuid
-  questionId String   @map("quesiton_id") @db.Uuid
+  questionId String   @map("question_id") @db.Uuid
   answer     String   @db.Text
   answerType String   @map("answer_type") @db.VarChar(20)
   mediaUrl   String?  @map("media_url") @db.Text
