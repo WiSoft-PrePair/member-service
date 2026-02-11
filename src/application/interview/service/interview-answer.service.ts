@@ -16,6 +16,7 @@ import {
   type AIScoringPort,
   MEMBER_POINT_UPDATE,
   type MemberPointUpdate,
+  ScoringFeedback,
   ScoringResult,
 } from "@/application/interview/ports";
 import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
@@ -59,10 +60,10 @@ export class InterviewAnswerService {
     await this.interviewAnswerRepository.save(interviewAnswer);
 
     let score: number | null = null;
-    let feedback: string | undefined;
+    let feedback: ScoringFeedback | null = null;
 
     if (question.isFirstAnswer()) {
-      const result: { score: number; feedback?: string } =
+      const result: { score: number; feedback: ScoringFeedback } =
         await this.handleFirstAnswer(question, answer);
       score = result.score;
       feedback = result.feedback;
@@ -78,9 +79,13 @@ export class InterviewAnswerService {
   private async handleFirstAnswer(
     question: InterviewQuestion,
     answer: string,
-  ): Promise<{ score: number; feedback?: string }> {
+  ): Promise<{ score: number; feedback: ScoringFeedback }> {
     let score: number = 0;
-    let feedback: string | undefined;
+    let feedback: ScoringFeedback = {
+      strengths: [],
+      improvements: [],
+      recommendations: [],
+    };
 
     try {
       const result: ScoringResult = await this.aiScoring.scoreAnswer({

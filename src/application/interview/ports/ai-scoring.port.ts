@@ -4,9 +4,15 @@ export type ScoringRequest = {
   answer: string;
 };
 
+export type ScoringFeedback = {
+  strengths: string[];
+  improvements: string[];
+  recommendations: string[];
+};
+
 export type ScoringResult = {
   score: number;
-  feedback?: string;
+  feedback: ScoringFeedback;
 };
 
 export interface AIScoringPort {

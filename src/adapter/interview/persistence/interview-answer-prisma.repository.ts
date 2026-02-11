@@ -14,7 +14,7 @@ export class InterviewAnswerPrismaRepository implements InterviewAnswerRepositor
     await this.prisma.interviewAnswer.create({
       data: {
         id: answer.id,
-        interviewId: answer.interviewId,
+        questionId: answer.questionId,
         answer: answer.answer,
         answerType: answer.answerType,
         mediaUrl: answer.mediaUrl,
@@ -23,16 +23,16 @@ export class InterviewAnswerPrismaRepository implements InterviewAnswerRepositor
     });
   }
 
-  async findByInterviewId(interviewId: string): Promise<InterviewAnswer[]> {
+  async findByInterviewId(questionId: string): Promise<InterviewAnswer[]> {
     const records = await this.prisma.interviewAnswer.findMany({
-      where: { interviewId },
+      where: { questionId },
       orderBy: { createdAt: "asc" },
     });
 
     return records.map((r) =>
       InterviewAnswer.of({
         id: r.id,
-        interviewId: r.interviewId,
+        questionId: r.questionId,
         answer: r.answer,
         answerType: r.answerType as AnswerTypeEnum,
         mediaUrl: r.mediaUrl,
@@ -41,9 +41,9 @@ export class InterviewAnswerPrismaRepository implements InterviewAnswerRepositor
     );
   }
 
-  async countByInterviewId(interviewId: string): Promise<number> {
+  async countByInterviewId(questionId: string): Promise<number> {
     return this.prisma.interviewAnswer.count({
-      where: { interviewId },
+      where: { questionId },
     });
   }
 }
