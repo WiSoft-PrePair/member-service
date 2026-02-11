@@ -13,9 +13,9 @@ export class MemberPointUpdateAdapter implements MemberPointUpdate {
 
   async addPoint(memberId: string, point: number): Promise<void> {
     const response: Response = await fetch(
-      `${this.baseUrl}/api/members/${memberId}/point}`,
+      `${this.baseUrl}/api/members/${memberId}/point`,
       {
-        method: "POST",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ point }),
         signal: AbortSignal.timeout(10_000),
