@@ -2,7 +2,7 @@ import { AnswerTypeEnum } from "@/domain/interview/answer/enums/answer-type.enum
 
 export type InterviewAnswerType = {
   id: string;
-  interviewId: string;
+  questionId: string;
   answer: string;
   answerType: AnswerTypeEnum;
   mediaUrl: string | null;
@@ -10,7 +10,7 @@ export type InterviewAnswerType = {
 };
 
 export type CreateAnswerRequest = {
-  interviewId: string;
+  questionId: string;
   answer: string;
   answerType: AnswerTypeEnum;
   mediaUrl?: string;

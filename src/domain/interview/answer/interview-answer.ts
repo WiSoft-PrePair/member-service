@@ -7,7 +7,7 @@ import { randomUUID } from "crypto";
 
 export class InterviewAnswer {
   readonly id: string;
-  readonly interviewId: string;
+  readonly questionId: string;
   readonly answer: string;
   readonly answerType: AnswerTypeEnum;
   readonly mediaUrl: string | null;
@@ -20,7 +20,7 @@ export class InterviewAnswer {
   public static createAnswer(request: CreateAnswerRequest): InterviewAnswer {
     return new InterviewAnswer({
       id: randomUUID(),
-      interviewId: request.interviewId,
+      questionId: request.questionId,
       answer: request.answer,
       answerType: request.answerType,
       mediaUrl: request.mediaUrl ?? null,
