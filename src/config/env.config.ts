@@ -29,6 +29,7 @@ export const envSchema = z.object({
 
   OPENAI_API_KEY: z.string(),
   OPENAI_MODEL: z.string(),
+  MEMBER_SERVICE_URL: z.string(),
 });
 
 export type Env = z.infer<typeof envSchema>;

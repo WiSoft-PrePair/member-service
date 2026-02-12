@@ -1,4 +1,4 @@
-import { QuestionTypeEnum } from "@/domain/interview/enums";
+import { QuestionTypeEnum } from "@/domain/interview/question/enums";
 
 export type GeneratedQuestion = {
   question: string;

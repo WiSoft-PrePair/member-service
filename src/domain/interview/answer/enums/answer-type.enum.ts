@@ -1,4 +1,4 @@
 export enum AnswerTypeEnum {
-  TEXT = "text",
   VIDEO = "video",
+  TEXT = "text",
 }

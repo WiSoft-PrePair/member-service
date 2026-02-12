@@ -206,7 +206,7 @@ bun test --coverage
 
 # Code Quality
 bun run lint
-bun run type-check
+bun run types-check
 
 # Build Verification
 bun run build
@@ -300,7 +300,7 @@ bun run build
 ```bash
 bun test test/unit/domain/member
 bun test test/integration/member
-bun run lint && bun run type-check && bun run build
+bun run lint && bun run types-check && bun run build
 ```
 
 **Manual Test Checklist**:
@@ -394,7 +394,7 @@ bun run lint && bun run type-check && bun run build
 ```bash
 bun test test/unit/domain/reward
 bun test test/integration/reward
-bun run lint && bun run type-check && bun run build
+bun run lint && bun run types-check && bun run build
 ```
 
 **Manual Test Checklist**:
@@ -492,7 +492,7 @@ bun run lint && bun run type-check && bun run build
 ```bash
 bun test test/unit/domain/interview
 bun test test/integration/interview
-bun run lint && bun run type-check && bun run build
+bun run lint && bun run types-check && bun run build
 ```
 
 **Manual Test Checklist**:
@@ -582,7 +582,7 @@ bun run lint && bun run type-check && bun run build
 ```bash
 bun test test/unit/application/interview
 bun test test/integration/interview
-bun run lint && bun run type-check && bun run build
+bun run lint && bun run types-check && bun run build
 ```
 
 **Manual Test Checklist**:
@@ -663,7 +663,7 @@ bun test:e2e
 bun test --coverage
 
 # All Quality Checks
-bun run lint && bun run type-check && bun run build
+bun run lint && bun run types-check && bun run build
 
 # API Docs (start server and check)
 bun run start:dev

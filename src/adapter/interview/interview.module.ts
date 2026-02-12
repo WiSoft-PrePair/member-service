@@ -5,7 +5,9 @@ import { INTERVIEW_QUESTION_REPOSITORY } from "@/domain/interview/question";
 import { InterviewQuestionPrismaRepository } from "@/adapter/interview/persistence/interview-question-prisma.repository";
 import {
   AI_QUESTION_GENERATOR,
+  AI_SCORING_PORT,
   KAKAO_TOKEN_REFRESHER,
+  MEMBER_POINT_UPDATE,
   NOTIFICATION_RECIPIENT_FINDER,
   NOTIFICATION_SENDER,
 } from "@/application/interview/ports";
@@ -17,12 +19,20 @@ import { KakaoNotificationSender } from "@/adapter/interview/notification/kakao-
 import { NotificationRecipientFinderImpl } from "@/adapter/interview/notification/notification-recipient-finder.impl";
 import { OAuthModule } from "@/adapter/oauth/oauth.module";
 import { KakaoTokenRefresherImpl } from "@/adapter/interview/notification/kakao-token-refresher.impl";
+import { InterviewAnswerService } from "@/application/interview/service/interview-answer.service";
+import { INTERVIEW_ANSWER_REPOSITORY } from "@/domain/interview/answer";
+import { InterviewAnswerPrismaRepository } from "@/adapter/interview/persistence/interview-answer-prisma.repository";
+import { AIScoringAdapter } from "@/adapter/interview/ai/ai-scoring.adapter";
+import { MemberPointUpdateAdapter } from "@/adapter/interview/ai/member-point-update.adapter";
+import { INTERVIEW_FEEDBACK_REPOSITORY } from "@/domain/interview/feedback";
+import { InterviewFeedbackPrismaRepository } from "@/adapter/interview/persistence/interview-feedback-prisma.repository";
 
 @Module({
   imports: [OAuthModule],
   controllers: [InterviewController],
   providers: [
     InterviewService,
+    InterviewAnswerService,
     InterviewNotificationService,
     InterviewQuestionScheduler,
     EmailNotificationSender,
@@ -32,8 +42,24 @@ import { KakaoTokenRefresherImpl } from "@/adapter/interview/notification/kakao-
       useClass: InterviewQuestionPrismaRepository,
     },
     {
+      provide: INTERVIEW_ANSWER_REPOSITORY,
+      useClass: InterviewAnswerPrismaRepository,
+    },
+    {
+      provide: INTERVIEW_FEEDBACK_REPOSITORY,
+      useClass: InterviewFeedbackPrismaRepository,
+    },
+    {
       provide: AI_QUESTION_GENERATOR,
       useClass: OpenaiQuestionGeneratorService,
+    },
+    {
+      provide: AI_SCORING_PORT,
+      useClass: AIScoringAdapter,
+    },
+    {
+      provide: MEMBER_POINT_UPDATE,
+      useClass: MemberPointUpdateAdapter,
     },
     {
       provide: NOTIFICATION_SENDER,

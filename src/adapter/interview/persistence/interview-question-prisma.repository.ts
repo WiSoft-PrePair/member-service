@@ -4,13 +4,16 @@ import {
   InterviewQuestionRepository,
 } from "@/domain/interview/question";
 import { PrismaService } from "@/adapter/shared/prisma";
+import {
+  QuestionStatusEnum,
+  QuestionTypeEnum,
+} from "@/domain/interview/question/enums";
 
 @Injectable()
 export class InterviewQuestionPrismaRepository
   implements InterviewQuestionRepository
 {
   constructor(private readonly prisma: PrismaService) {}
-
   async save(question: InterviewQuestion): Promise<void> {
     await this.prisma.interviewQuestion.create({
       data: {
@@ -23,6 +26,38 @@ export class InterviewQuestionPrismaRepository
         score: question.score,
         sourceRef: question.sourceRef,
         createdAt: question.createdAt,
+      },
+    });
+  }
+
+  async findById(id: string): Promise<InterviewQuestion | null> {
+    const record = await this.prisma.interviewQuestion.findUnique({
+      where: { id },
+    });
+
+    if (!record) {
+      return null;
+    }
+
+    return InterviewQuestion.of({
+      id: record.id,
+      userId: record.userId,
+      question: record.question,
+      questionType: record.questionType as QuestionTypeEnum,
+      questionTag: record.questionTag,
+      status: record.status as QuestionStatusEnum,
+      score: record.score,
+      sourceRef: record.sourceRef,
+      createdAt: record.createdAt,
+    });
+  }
+
+  async update(question: InterviewQuestion): Promise<void> {
+    await this.prisma.interviewQuestion.update({
+      where: { id: question.id },
+      data: {
+        status: question.status,
+        score: question.score,
       },
     });
   }

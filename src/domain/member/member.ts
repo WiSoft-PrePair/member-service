@@ -144,6 +144,24 @@ export class Member {
     return updatedMember;
   }
 
+  public addPoint(point: number): Member {
+    const updateMember: Member = new Member({
+      ...this,
+      point: this.point + point,
+    });
+
+    updateMember.domainEvents.push(
+      createDomainEvent(this.id, "MemberPointAdded", {
+        memberId: updateMember.id,
+        addPoint: point,
+        totalPoint: updateMember.point,
+        occurredAt: new Date(),
+      }),
+    );
+
+    return updateMember;
+  }
+
   public getDomainEvents(): ReadonlyArray<DomainEvent> {
     return this.domainEvents;
   }

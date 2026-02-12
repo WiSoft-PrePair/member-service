@@ -6,3 +6,4 @@ export * from "./change-email.command";
 export * from "./send-email-verification.command";
 export * from "./verify-email.command";
 export * from "./reset-password.command";
+export * from "./add-point.command";

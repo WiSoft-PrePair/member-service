@@ -5,3 +5,4 @@ export * from "./send-email-verification.dto";
 export * from "./verify-email.dto";
 export * from "./change-email.dto";
 export * from "./reset-password.dto";
+export * from "./add-point.dto";

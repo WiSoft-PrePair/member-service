@@ -1,8 +1,11 @@
-import { QuestionStatusEnum, QuestionTypeEnum } from "@/domain/interview/enums";
+import {
+  QuestionStatusEnum,
+  QuestionTypeEnum,
+} from "@/domain/interview/question/enums";
 import {
   CreateQuestionRequest,
   InterviewQuestionType,
-} from "@/domain/interview/types";
+} from "@/domain/interview/question/types";
 import { randomUUID } from "crypto";
 
 export class InterviewQuestion {
@@ -34,5 +37,28 @@ export class InterviewQuestion {
       sourceRef: request.sourceRef ?? null,
       createdAt: new Date(),
     });
+  }
+
+  public isFirstAnswer(): boolean {
+    return this.status === QuestionStatusEnum.UNANSWERED;
+  }
+
+  public marksAnswered(score: number): InterviewQuestion {
+    return new InterviewQuestion({
+      ...this,
+      status: QuestionStatusEnum.ANSWERED,
+      score,
+    });
+  }
+
+  public updateScore(score: number): InterviewQuestion {
+    return new InterviewQuestion({
+      ...this,
+      score,
+    });
+  }
+
+  public static of(data: InterviewQuestionType): InterviewQuestion {
+    return new InterviewQuestion(data);
   }
 }
