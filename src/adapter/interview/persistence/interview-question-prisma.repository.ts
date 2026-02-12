@@ -10,7 +10,9 @@ import {
 } from "@/domain/interview/question/enums";
 
 @Injectable()
-export class InterviewQuestionPrismaRepository implements InterviewQuestionRepository {
+export class InterviewQuestionPrismaRepository
+  implements InterviewQuestionRepository
+{
   constructor(private readonly prisma: PrismaService) {}
   async save(question: InterviewQuestion): Promise<void> {
     await this.prisma.interviewQuestion.create({

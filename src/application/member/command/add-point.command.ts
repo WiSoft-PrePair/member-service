@@ -25,10 +25,9 @@ export class AddPointCommand implements ICommand {
 
 @Injectable()
 @CommandHandler(AddPointCommand)
-export class AddPointCommandHandler implements ICommandHandler<
-  AddPointCommand,
-  void
-> {
+export class AddPointCommandHandler
+  implements ICommandHandler<AddPointCommand, void>
+{
   constructor(
     @Inject(MEMBER_REPOSITORY)
     private readonly memberRepository: MemberRepository,

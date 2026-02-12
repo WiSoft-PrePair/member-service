@@ -17,6 +17,7 @@ import { InterviewQuestionScheduler } from "@/application/interview/service/inte
 import { Public } from "@/adapter/shared/api/decorators/public.decorator";
 import { SubmitAnswerDto } from "@/adapter/interview/api/dto/submit-answer.dto";
 import { InterviewAnswer } from "@/domain/interview/answer";
+import { InterviewFeedback } from "@/domain/interview/feedback";
 
 @Controller("api/interview")
 export class InterviewController {
@@ -86,14 +87,31 @@ export class InterviewController {
     const answers: InterviewAnswer[] =
       await this.interviewAnswerService.getAnswerByQuestion(questionId);
 
+    const answerIds: string[] = answers.map((a) => a.id);
+    const feedbacks: InterviewFeedback[] =
+      await this.interviewAnswerService.getFeedbacksByAnswerIds(answerIds);
+
+    const feedbackMap = new Map(feedbacks.map((f) => [f.answerId, f]));
+
     return {
-      answers: answers.map((a) => ({
-        id: a.id,
-        answer: a.answer,
-        answerType: a.answerType,
-        mediaUrl: a.mediaUrl,
-        createdAt: a.createdAt,
-      })),
+      answers: answers.map((a) => {
+        const fb: InterviewFeedback | undefined = feedbackMap.get(a.id);
+        return {
+          id: a.id,
+          answer: a.answer,
+          answerType: a.answerType,
+          mediaUrl: a.mediaUrl,
+          createdAt: a.createdAt,
+          feedback: fb
+            ? {
+                score: fb.score,
+                strengths: fb.feedback.strengths,
+                improvements: fb.feedback.improvements,
+                recommendations: fb.feedback.recommendations,
+              }
+            : null,
+        };
+      }),
     };
   }
 }

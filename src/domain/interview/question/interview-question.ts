@@ -51,6 +51,13 @@ export class InterviewQuestion {
     });
   }
 
+  public updateScore(score: number): InterviewQuestion {
+    return new InterviewQuestion({
+      ...this,
+      score,
+    });
+  }
+
   public static of(data: InterviewQuestionType): InterviewQuestion {
     return new InterviewQuestion(data);
   }

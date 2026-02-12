@@ -1,5 +1,4 @@
 import {
-  AddPointCommand,
   AddPointCommandHandler,
   ChangePasswordCommandHandler,
   MemberRegisterCommandHandler,

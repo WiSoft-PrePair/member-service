@@ -20,6 +20,11 @@ import {
   ScoringResult,
 } from "@/application/interview/ports";
 import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
+import {
+  INTERVIEW_FEEDBACK_REPOSITORY,
+  InterviewFeedback,
+  type InterviewFeedbackRepository,
+} from "@/domain/interview/feedback";
 
 @Injectable()
 export class InterviewAnswerService {
@@ -32,6 +37,8 @@ export class InterviewAnswerService {
     private readonly aiScoring: AIScoringPort,
     @Inject(MEMBER_POINT_UPDATE)
     private readonly memberPointUpdate: MemberPointUpdate,
+    @Inject(INTERVIEW_FEEDBACK_REPOSITORY)
+    private readonly interviewFeedbackRepository: InterviewFeedbackRepository,
     @Inject(LOGGER)
     private readonly logger: ILogger,
   ) {}
@@ -59,14 +66,16 @@ export class InterviewAnswerService {
 
     await this.interviewAnswerRepository.save(interviewAnswer);
 
-    let score: number | null = null;
-    let feedback: ScoringFeedback | null = null;
+    const { score, feedback } = await this.scoreAndSaveFeedback(
+      question,
+      interviewAnswer,
+      answer,
+    );
 
     if (question.isFirstAnswer()) {
-      const result: { score: number; feedback: ScoringFeedback } =
-        await this.handleFirstAnswer(question, answer);
-      score = result.score;
-      feedback = result.feedback;
+      await this.handleFirstAnswer(question, score);
+    } else {
+      await this.handleReAnswer(question, score);
     }
 
     return {
@@ -76,11 +85,12 @@ export class InterviewAnswerService {
     };
   }
 
-  private async handleFirstAnswer(
+  private async scoreAndSaveFeedback(
     question: InterviewQuestion,
+    interviewAnswer: InterviewAnswer,
     answer: string,
   ): Promise<{ score: number; feedback: ScoringFeedback }> {
-    let score: number = 0;
+    let score = 0;
     let feedback: ScoringFeedback = {
       strengths: [],
       improvements: [],
@@ -104,6 +114,21 @@ export class InterviewAnswerService {
       );
     }
 
+    const interviewFeedback = InterviewFeedback.create({
+      answerId: interviewAnswer.id,
+      feedback,
+      score,
+    });
+
+    await this.interviewFeedbackRepository.save(interviewFeedback);
+
+    return { score, feedback };
+  }
+
+  private async handleFirstAnswer(
+    question: InterviewQuestion,
+    score: number,
+  ): Promise<void> {
     const updatedQuestion: InterviewQuestion = question.marksAnswered(score);
     await this.interviewQuestionRepository.update(updatedQuestion);
 
@@ -122,11 +147,23 @@ export class InterviewAnswerService {
         );
       }
     }
+  }
 
-    return { score, feedback };
+  private async handleReAnswer(
+    question: InterviewQuestion,
+    score: number,
+  ): Promise<void> {
+    const updatedQuestion: InterviewQuestion = question.updateScore(score);
+    await this.interviewQuestionRepository.update(updatedQuestion);
   }
 
   async getAnswerByQuestion(questionId: string): Promise<InterviewAnswer[]> {
     return this.interviewAnswerRepository.findByQuestionId(questionId);
+  }
+
+  async getFeedbacksByAnswerIds(
+    answerIds: string[],
+  ): Promise<InterviewFeedback[]> {
+    return this.interviewFeedbackRepository.findByAnswerIds(answerIds);
   }
 }

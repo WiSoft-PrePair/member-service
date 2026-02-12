@@ -9,7 +9,7 @@ import {
   AI_QUESTION_GENERATOR,
   type AIQuestionGenerator,
   GeneratedQuestion,
-}                           from "@/application/interview/ports";
+} from "@/application/interview/ports";
 import { QuestionTypeEnum } from "@/domain/interview/question/enums";
 
 @Injectable()

@@ -24,6 +24,8 @@ import { INTERVIEW_ANSWER_REPOSITORY } from "@/domain/interview/answer";
 import { InterviewAnswerPrismaRepository } from "@/adapter/interview/persistence/interview-answer-prisma.repository";
 import { AIScoringAdapter } from "@/adapter/interview/ai/ai-scoring.adapter";
 import { MemberPointUpdateAdapter } from "@/adapter/interview/ai/member-point-update.adapter";
+import { INTERVIEW_FEEDBACK_REPOSITORY } from "@/domain/interview/feedback";
+import { InterviewFeedbackPrismaRepository } from "@/adapter/interview/persistence/interview-feedback-prisma.repository";
 
 @Module({
   imports: [OAuthModule],
@@ -42,6 +44,10 @@ import { MemberPointUpdateAdapter } from "@/adapter/interview/ai/member-point-up
     {
       provide: INTERVIEW_ANSWER_REPOSITORY,
       useClass: InterviewAnswerPrismaRepository,
+    },
+    {
+      provide: INTERVIEW_FEEDBACK_REPOSITORY,
+      useClass: InterviewFeedbackPrismaRepository,
     },
     {
       provide: AI_QUESTION_GENERATOR,

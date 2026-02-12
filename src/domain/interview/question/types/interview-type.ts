@@ -1,4 +1,7 @@
-import { QuestionStatusEnum, QuestionTypeEnum } from "@/domain/interview/question/enums";
+import {
+  QuestionStatusEnum,
+  QuestionTypeEnum,
+} from "@/domain/interview/question/enums";
 
 export type InterviewQuestionType = {
   id: string;

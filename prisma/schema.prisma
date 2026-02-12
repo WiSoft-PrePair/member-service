@@ -40,8 +40,21 @@ model InterviewAnswer {
   mediaUrl   String?  @map("media_url") @db.Text
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  question InterviewQuestion @relation(fields: [questionId], references: [id])
+  question InterviewQuestion  @relation(fields: [questionId], references: [id])
+  feedback InterviewFeedback?
 
   @@index([questionId])
   @@map("interview_answer")
+}
+
+model InterviewFeedback {
+  id        String   @id @default(uuid()) @db.Uuid
+  answerId  String   @unique @map("answer_id") @db.Uuid
+  feedback  String   @db.Text
+  score     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  answer InterviewAnswer @relation(fields: [answerId], references: [id])
+
+  @@map("interview_feedback")
 }

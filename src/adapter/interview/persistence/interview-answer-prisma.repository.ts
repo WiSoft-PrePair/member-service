@@ -7,7 +7,9 @@ import {
 import { PrismaService } from "@/adapter/shared/prisma";
 
 @Injectable()
-export class InterviewAnswerPrismaRepository implements InterviewAnswerRepository {
+export class InterviewAnswerPrismaRepository
+  implements InterviewAnswerRepository
+{
   constructor(private readonly prisma: PrismaService) {}
 
   async save(answer: InterviewAnswer): Promise<void> {
