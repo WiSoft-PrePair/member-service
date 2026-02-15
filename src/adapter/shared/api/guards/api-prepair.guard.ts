@@ -15,7 +15,7 @@ export class ApiPrepairGuard implements CanActivate {
     context: ExecutionContext,
   ): boolean | Promise<boolean> | Observable<boolean> {
     const request: Request = context.switchToHttp().getRequest<Request>();
-    const apiKey: string | undefined = request.headers["x-api-prepair"] as
+    const apiKey: string | undefined = request.headers["X-api-prepair"] as
       | string
       | undefined;
 
