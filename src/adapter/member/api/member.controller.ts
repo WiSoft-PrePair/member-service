@@ -75,6 +75,7 @@ export class MemberController {
   }
 
   @Public()
+  @UseGuards(ApiPrepairGuard)
   @Get("all")
   async getMembers(
     @Query("limit") limit?: string,

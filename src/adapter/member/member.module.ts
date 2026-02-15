@@ -46,10 +46,6 @@ import { ApiPrepairGuard } from "@/adapter/shared/api/guards/api-prepair.guard";
       provide: EMAIL_SERVICE,
       useClass: NodemailerService,
     },
-    {
-      provide: APP_GUARD,
-      useClass: ApiPrepairGuard,
-    },
   ],
   exports: [MEMBER_REPOSITORY, MEMBER_READ_REPOSITORY, PASSWORD_ENCODER],
 })
