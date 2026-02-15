@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from "@nestjs/common";
 import {
   AddPointDto,
@@ -31,7 +32,12 @@ import {
   SendEmailVerificationCommand,
   VerifyEmailCommand,
 } from "@/application/member/command";
-import { GetMemberQuery, GetMemberResult } from "@/application/member/query";
+import {
+  GetMemberQuery,
+  GetMemberResult,
+  GetMembersQuery,
+  GetMembersResult,
+} from "@/application/member/query";
 import { CurrentUser } from "@/adapter/shared/api/decorators/current-user.decorator";
 import { type User } from "@/adapter/shared/api/types/user";
 import { Public } from "@/adapter/shared/api/decorators/public.decorator";
@@ -39,6 +45,7 @@ import {
   GetMemberEmailQuery,
   GetMemberEmailResult,
 } from "@/application/member/query/get-member-email.query";
+import { ApiPrepairGuard } from "@/adapter/shared/api/guards/api-prepair.guard";
 
 @Controller("api/members")
 export class MemberController {
@@ -68,6 +75,21 @@ export class MemberController {
   }
 
   @Public()
+  @Get("all")
+  async getMembers(
+    @Query("limit") limit?: string,
+    @Query("offset") offset?: string,
+  ): Promise<GetMembersResult> {
+    return this.queryBus.execute<GetMembersQuery, GetMembersResult>(
+      new GetMembersQuery(
+        limit ? Number.parseInt(limit, 10) : 20,
+        offset ? Number.parseInt(offset, 10) : 0,
+      ),
+    );
+  }
+
+  @Public()
+  @UseGuards(ApiPrepairGuard)
   @Get(":id")
   async getMember(@Param("id") id: string): Promise<GetMemberResult> {
     return this.queryBus.execute<GetMemberQuery, GetMemberResult>(

@@ -9,7 +9,10 @@ import {
   VerifyEmailCommandHandler,
   WithdrawMemberCommandHandler,
 } from "@/application/member/command";
-import { GetMemberHandler } from "@/application/member/query";
+import {
+  GetMemberHandler,
+  GetMembersHandler,
+} from "@/application/member/query";
 import {
   MemberEmailChangedEventHandler,
   MemberLoginEventHandler,
@@ -33,7 +36,11 @@ export const CommandHandlers = [
   AddPointCommandHandler,
 ];
 
-export const QueryHandlers = [GetMemberHandler, GetMemberEmailQueryHandler];
+export const QueryHandlers = [
+  GetMemberHandler,
+  GetMemberEmailQueryHandler,
+  GetMembersHandler,
+];
 
 export const EventHandlers = [
   MemberRegisterEventHandler,

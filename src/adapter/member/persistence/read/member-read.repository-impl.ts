@@ -9,7 +9,6 @@ import {
 @Injectable()
 export class MemberReadRepositoryImpl implements MemberReadRepository {
   constructor(private readonly em: EntityManager) {}
-
   save(dto: MemberReadDto): void {
     const entity: MemberReadEntity = this.toEntity(dto);
 
@@ -52,6 +51,10 @@ export class MemberReadRepositoryImpl implements MemberReadRepository {
     );
 
     return entities.map((entity) => this.toDto(entity));
+  }
+
+  async countAll(): Promise<number> {
+    return await this.em.count(MemberReadEntity, {});
   }
 
   async withdraw(id: string): Promise<number> {

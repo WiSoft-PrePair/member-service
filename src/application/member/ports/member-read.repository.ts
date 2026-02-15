@@ -12,6 +12,8 @@ export interface MemberReadRepository {
     offset?: number;
   }): Promise<MemberReadDto[]>;
 
+  countAll(): Promise<number>;
+
   withdraw(id: string): Promise<number>;
 }
 
