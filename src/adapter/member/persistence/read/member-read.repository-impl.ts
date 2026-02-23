@@ -1,10 +1,10 @@
+import { EntityManager } from "@mikro-orm/postgresql";
 import { Injectable } from "@nestjs/common";
-import { EntityManager } from "@mikro-orm/core";
-import { MemberReadEntity } from "./entity/member-read.entity";
 import {
   MemberReadDto,
   MemberReadRepository,
 } from "@/application/member/ports";
+import { MemberReadEntity } from "./entity/member-read.entity";
 
 @Injectable()
 export class MemberReadRepositoryImpl implements MemberReadRepository {
@@ -40,17 +40,35 @@ export class MemberReadRepositoryImpl implements MemberReadRepository {
     limit?: number;
     offset?: number;
   }): Promise<MemberReadEntity[]> {
-    const entities: MemberReadEntity[] | null = await this.em.find(
-      MemberReadEntity,
-      {},
-      {
-        limit: options?.limit ?? 20,
-        offset: options?.offset ?? 0,
-        orderBy: { createdAt: "DESC" },
-      },
-    );
+    const knex = this.em.getKnex();
 
-    return entities.map((entity) => this.toDto(entity));
+    const rows = await knex("member_read as m")
+      .leftJoin(
+        "oauth_connections as oc",
+        knex.raw("m.id::uuid = oc.member_id AND oc.provider = 'kakao'"),
+      )
+      .select("m.*", "oc.access_token as kakaoAccessToken")
+      .orderBy("m.created_at", "desc")
+      .limit(options?.limit ?? 20)
+      .offset(options?.offset ?? 0);
+
+    return rows.map(
+      (row) =>
+        new MemberReadDto({
+          id: row.id,
+          email: row.email,
+          job: row.job,
+          nickname: row.nickname,
+          notification: row.notification,
+          frequency: row.frequency,
+          point: row.point,
+          isPro: row.is_pro,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+          activity: row.activity,
+          kakaoAccessToken: row.kakaoAccessToken ?? null,
+        }),
+    );
   }
 
   async countAll(): Promise<number> {

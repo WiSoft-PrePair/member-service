@@ -25,6 +25,7 @@ export class MemberSummary {
     public readonly point: number,
     public readonly isPro: boolean,
     public readonly activity: string[] = [],
+    public readonly kakaoAccessToken: string | null = null,
   ) {}
 }
 export class GetMembersResult {
@@ -38,9 +39,10 @@ export class GetMembersResult {
 
 @Injectable()
 @QueryHandler(GetMembersQuery)
-export class GetMembersHandler
-  implements IQueryHandler<GetMembersQuery, GetMembersResult>
-{
+export class GetMembersHandler implements IQueryHandler<
+  GetMembersQuery,
+  GetMembersResult
+> {
   constructor(
     @Inject(MEMBER_READ_REPOSITORY)
     private readonly memberReadRepository: MemberReadRepository,
@@ -76,6 +78,7 @@ export class GetMembersHandler
             m.point,
             m.isPro,
             m.activity,
+            m.kakaoAccessToken ?? null,
           ),
       ),
       total,
