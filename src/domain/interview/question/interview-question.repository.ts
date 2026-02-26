@@ -6,6 +6,10 @@ export interface InterviewQuestionRepository {
   findById(id: string): Promise<InterviewQuestion | null>;
 
   update(question: InterviewQuestion): Promise<void>;
+
+  findByVideoInterviewId(
+    videoInterviewId: string,
+  ): Promise<InterviewQuestion[]>;
 }
 
 export const INTERVIEW_QUESTION_REPOSITORY: symbol = Symbol(
