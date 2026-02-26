@@ -30,7 +30,7 @@ export class STTAdapter implements STTPort {
       file,
       model: "gpt-4o-mini-transcribe",
       language: "ko",
-      response_format: "verbose_json",
+      response_format: "json",
     });
 
     this.logger.log("STT transcription completed", {
@@ -40,7 +40,7 @@ export class STTAdapter implements STTPort {
 
     return {
       text: response.text,
-      durationSeconds: response.duration ?? 0,
+      durationSeconds: 0,
     };
   }
 }

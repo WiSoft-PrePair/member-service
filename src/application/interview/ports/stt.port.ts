@@ -4,7 +4,7 @@ export type TranscriptionResult = {
 };
 
 export interface STTPort {
-  transcribe(audioBuffer: Buffer): Promise<TranscriptionResult>;
+  transcribe(audio: Buffer, format: string): Promise<TranscriptionResult>;
 }
 
 export const STT_PORT: symbol = Symbol("STTPort");

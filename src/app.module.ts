@@ -15,6 +15,7 @@ import { HealthController } from "@/adapter/shared/api/health.controller";
 import { InterviewModule } from "@/adapter/interview/interview.module";
 import { PrismaModule } from "@/adapter/shared/prisma";
 import { ScheduleModule } from "@nestjs/schedule";
+import { VideoInterviewModule } from "@/adapter/interview/video-interview.module";
 
 @Module({
   imports: [
@@ -24,12 +25,13 @@ import { ScheduleModule } from "@nestjs/schedule";
     }),
     CqrsModule.forRoot(),
     ScheduleModule.forRoot(),
-    PersistenceModule,
     MemberModule,
     AuthModule,
     OAuthModule,
     LoggerModule,
     InterviewModule,
+    VideoInterviewModule,
+    PersistenceModule,
     PrismaModule,
   ],
   controllers: [HealthController],

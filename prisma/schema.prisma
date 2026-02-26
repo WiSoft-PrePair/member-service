@@ -52,7 +52,7 @@ model InterviewAnswer {
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   question InterviewQuestion  @relation(fields: [questionId], references: [id])
-  feedback InterviewFeedback?
+  feedbacks InterviewFeedback[]
 
   @@index([questionId])
   @@map("interview_answer")
@@ -60,7 +60,7 @@ model InterviewAnswer {
 
 model InterviewFeedback {
   id           String   @id @default(uuid()) @db.Uuid
-  answerId     String   @unique @map("answer_id") @db.Uuid
+  answerId     String   @map("answer_id") @db.Uuid
   feedbackType String   @default("content") @map("feedback_type") @db.VarChar(20)
   feedback     String   @db.Text
   score        Int      @default(0)
