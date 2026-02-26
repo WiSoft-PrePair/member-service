@@ -4,3 +4,8 @@ export * from "./notification-sender.port";
 export * from "./kakao-token-refresher.port";
 export * from "./ai-scoring.port";
 export * from "./member-point-update.port";
+export * from "./s3-storage.port";
+export * from "./video-processing.port";
+export * from "./stt.port";
+export * from "./facial-expression-analysis.port";
+export * from "./overall-feedback.port";
