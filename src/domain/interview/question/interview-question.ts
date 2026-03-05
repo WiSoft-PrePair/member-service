@@ -11,6 +11,7 @@ import { randomUUID } from "crypto";
 export class InterviewQuestion {
   readonly id: string;
   readonly userId: string;
+  readonly videoInterviewId: string | null;
   readonly question: string;
   readonly questionType: QuestionTypeEnum;
   readonly questionTag: string;
@@ -29,6 +30,7 @@ export class InterviewQuestion {
     return new InterviewQuestion({
       id: randomUUID(),
       userId: request.userId,
+      videoInterviewId: request.videoInterviewId ?? null,
       question: request.question,
       questionType: request.questionType,
       questionTag: request.questionTag,

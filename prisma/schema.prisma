@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider     = "prisma-client"
   output       = "../src/generated/prisma"
@@ -15,21 +9,38 @@ datasource db {
 }
 
 model InterviewQuestion {
-  id           String   @id @default(uuid()) @db.Uuid
-  userId       String   @map("user_id") @db.Uuid
-  question     String   @db.Text
-  questionType String   @map("question_type") @db.VarChar(20)
-  questionTag  String   @map("question_tag") @db.VarChar(50)
-  status       String   @default("unanswered") @db.VarChar(20)
-  score        Int      @default(0)
-  sourceRef    String?  @map("source_ref")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  videoInterviewId String?  @map("video_interview_id") @db.Uuid
+  question         String   @db.Text
+  questionType     String   @map("question_type") @db.VarChar(20)
+  questionTag      String   @map("question_tag") @db.VarChar(50)
+  status           String   @default("unanswered") @db.VarChar(20)
+  score            Int      @default(0)
+  sourceRef        String?  @map("source_ref")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  answers InterviewAnswer[]
+  videoInterview VideoInterview?   @relation(fields: [videoInterviewId], references: [id])
+  answers        InterviewAnswer[]
 
   @@index([userId])
   @@index([userId, createdAt])
   @@map("interview_question")
+}
+
+model VideoInterview {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  questionCount Int       @map("question_count")
+  status        String    @default("generating") @db.VarChar(20)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  completedAt   DateTime? @map("complted_at") @db.Timestamptz()
+
+  questions InterviewQuestion[]
+
+  @@index([userId])
+  @@index([userId, createdAt])
+  @@map("video_interview")
 }
 
 model InterviewAnswer {
@@ -41,20 +52,22 @@ model InterviewAnswer {
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   question InterviewQuestion  @relation(fields: [questionId], references: [id])
-  feedback InterviewFeedback?
+  feedbacks InterviewFeedback[]
 
   @@index([questionId])
   @@map("interview_answer")
 }
 
 model InterviewFeedback {
-  id        String   @id @default(uuid()) @db.Uuid
-  answerId  String   @unique @map("answer_id") @db.Uuid
-  feedback  String   @db.Text
-  score     Int      @default(0)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id           String   @id @default(uuid()) @db.Uuid
+  answerId     String   @map("answer_id") @db.Uuid
+  feedbackType String   @default("content") @map("feedback_type") @db.VarChar(20)
+  feedback     String   @db.Text
+  score        Int      @default(0)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   answer InterviewAnswer @relation(fields: [answerId], references: [id])
 
+  @@unique([answerId, feedbackType])
   @@map("interview_feedback")
 }

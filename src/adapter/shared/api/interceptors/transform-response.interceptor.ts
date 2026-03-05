@@ -4,29 +4,41 @@ import {
   Injectable,
   NestInterceptor,
 } from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
 import { Response } from "express";
 import { SuccessResponse } from "@/adapter/shared/api/types/api-response.type";
 import { map, Observable } from "rxjs";
+import { SKIP_TRANSFORM_KEY } from "@/adapter/shared/api/decorators/skip-transform.decorator";
 
 @Injectable()
-export class TransformResponseInterceptor<T>
-  implements NestInterceptor<T, SuccessResponse<T>>
-{
+export class TransformResponseInterceptor<T> implements NestInterceptor<
+  T,
+  SuccessResponse<T>
+> {
+  constructor(private readonly reflector: Reflector) {}
+
   intercept(
     context: ExecutionContext,
     next: CallHandler<T>,
   ): Observable<SuccessResponse<T>> {
+    // SSE 등 변환을 건너뛰어야 하는 엔드포인트 처리
+    const skip = this.reflector.get<boolean>(
+      SKIP_TRANSFORM_KEY,
+      context.getHandler(),
+    );
+    if (skip) {
+      return next.handle() as unknown as Observable<SuccessResponse<T>>;
+    }
+
     const response: Response = context.switchToHttp().getResponse<Response>();
     const statusCode: number = response.statusCode;
 
     return next.handle().pipe(
       map((data: any) => {
-        // data에 message가 있으면 그것을 사용하고, data에서는 제거
         const customMessage = data?.message;
         const finalMessage =
           customMessage || this.getSuccessMessage(statusCode);
 
-        // data에서 message 제거
         if (data && typeof data === "object" && "message" in data) {
           const { message: _, ...rest } = data;
           return {

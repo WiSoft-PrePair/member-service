@@ -6,6 +6,7 @@ import {
 export type InterviewQuestionType = {
   id: string;
   userId: string;
+  videoInterviewId: string | null;
   question: string;
   questionType: QuestionTypeEnum;
   questionTag: string;
@@ -17,6 +18,7 @@ export type InterviewQuestionType = {
 
 export type CreateQuestionRequest = {
   userId: string;
+  videoInterviewId?: string;
   question: string;
   questionType: QuestionTypeEnum;
   questionTag: string;

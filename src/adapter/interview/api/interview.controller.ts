@@ -105,8 +105,8 @@ export class InterviewController {
           feedback: fb
             ? {
                 score: fb.score,
-                strengths: fb.feedback.strengths,
-                improvements: fb.feedback.improvements,
+                strengths: "strengths" in fb.feedback ? fb.feedback.strengths : [],
+                improvements: "improvements" in fb.feedback ? fb.feedback.improvements : [],
                 recommendations: fb.feedback.recommendations,
               }
             : null,
