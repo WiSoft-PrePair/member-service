@@ -6,3 +6,4 @@ export * from "./verify-email.dto";
 export * from "./change-email.dto";
 export * from "./reset-password.dto";
 export * from "./add-point.dto";
+export * from "./update-score.dto";

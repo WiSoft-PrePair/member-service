@@ -39,10 +39,9 @@ export class GetMembersResult {
 
 @Injectable()
 @QueryHandler(GetMembersQuery)
-export class GetMembersHandler implements IQueryHandler<
-  GetMembersQuery,
-  GetMembersResult
-> {
+export class GetMembersHandler
+  implements IQueryHandler<GetMembersQuery, GetMembersResult>
+{
   constructor(
     @Inject(MEMBER_READ_REPOSITORY)
     private readonly memberReadRepository: MemberReadRepository,

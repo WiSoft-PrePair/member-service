@@ -18,8 +18,6 @@ import {
   EventHandlers,
   QueryHandlers,
 } from "./member.handlers";
-import { APP_GUARD } from "@nestjs/core";
-import { ApiPrepairGuard } from "@/adapter/shared/api/guards/api-prepair.guard";
 
 @Module({
   imports: [EventStoreModule, CqrsModule],
