@@ -17,6 +17,7 @@ import {
   ResetPasswordDto,
   SendEmailVerificationDto,
   UpdateMemberDto,
+  UpdateScoreDto,
   VerifyEmailDto,
 } from "@/adapter/member/api/dto";
 import { CommandBus, QueryBus } from "@nestjs/cqrs";
@@ -208,6 +209,17 @@ export class MemberController {
   async addPoint(@Param("id") memberId: string, @Body() dto: AddPointDto) {
     await this.commandBus.execute(new AddPointCommand(memberId, dto.point));
     return { success: true };
+  }
+
+  @Public()
+  @UseGuards(ApiPrepairGuard)
+  @Patch("reward")
+  async updateScore(@Body() dto: UpdateScoreDto) {
+    await this.commandBus.execute(new AddPointCommand(dto.memberId, dto.score));
+
+    return {
+      success: true,
+    };
   }
 
   @Delete()
