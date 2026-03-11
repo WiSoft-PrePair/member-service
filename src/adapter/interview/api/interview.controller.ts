@@ -12,7 +12,7 @@ import { InterviewService } from "@/application/interview/service/interview.serv
 import { InterviewAnswerService } from "@/application/interview/service/interview-answer.service";
 import { CurrentUser } from "@/adapter/shared/api/decorators/current-user.decorator";
 import type { User } from "@/adapter/shared/api/types/user";
-import { InterviewQuestion } from "@/generated/prisma/client";
+import { InterviewQuestion } from "@/domain/interview/question";
 import { InterviewQuestionScheduler } from "@/application/interview/service/interview-question-scheduler";
 import { Public } from "@/adapter/shared/api/decorators/public.decorator";
 import { SubmitAnswerDto } from "@/adapter/interview/api/dto/submit-answer.dto";

@@ -12,6 +12,10 @@ import {
   PASSWORD_ENCODER,
   type PasswordEncoder,
 } from "@/domain/member";
+import {
+  MEMBER_READ_REPOSITORY,
+  type MemberReadRepository,
+} from "@/application/member/ports";
 import { LoginRequestDto } from "@/adapter/auth/api/dto";
 import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
 import { EventBus } from "@nestjs/cqrs";
@@ -23,6 +27,8 @@ export class AuthService {
     private readonly memberRepository: MemberRepository,
     @Inject(PASSWORD_ENCODER)
     private readonly passwordEncoder: PasswordEncoder,
+    @Inject(MEMBER_READ_REPOSITORY)
+    private readonly memberReadRepository: MemberReadRepository,
     private readonly eventBus: EventBus,
     @Inject(LOGGER)
     private readonly logger: ILogger,
@@ -61,10 +67,18 @@ export class AuthService {
       email: member.email.value,
     });
 
+    const memberRead = await this.memberReadRepository.findById(member.id);
+
     return {
       memberId: member.id,
       email: member.email.value,
       job: member.job,
+      nickname: member.nickname,
+      notification: member.notification,
+      frequency: member.frequency,
+      point: member.point,
+      isPro: member.isPro,
+      activity: memberRead?.activity ?? [],
     };
   }
 }

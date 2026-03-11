@@ -25,7 +25,7 @@ export class InterviewFeedbackPrismaRepository
   }
 
   async findByAnswerId(answerId: string): Promise<InterviewFeedback | null> {
-    const record = await this.prisma.interviewFeedback.findUnique({
+    const record = await this.prisma.interviewFeedback.findFirst({
       where: { answerId },
     });
 
