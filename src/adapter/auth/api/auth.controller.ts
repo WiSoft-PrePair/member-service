@@ -36,8 +36,7 @@ export class AuthController {
   @Public()
   @Post("login")
   async login(@Body() loginRequestDto: LoginRequestDto) {
-    const loginResult: { memberId: string; email: string; job: string } =
-      await this.authService.login(loginRequestDto);
+    const loginResult = await this.authService.login(loginRequestDto);
 
     const accessToken: JwtToken = this.jwtService.generateAccessToken(
       loginResult.memberId,
@@ -49,11 +48,33 @@ export class AuthController {
       loginResult.memberId,
     );
 
+    const {
+      memberId,
+      email,
+      job,
+      nickname,
+      notification,
+      frequency,
+      point,
+      isPro,
+      activity,
+    } = loginResult;
+
     return {
       accessToken: accessToken.accessToken,
-      refreshToken: refreshToken,
+      refreshToken,
       accessTokenExpiresIn: accessToken.expiresIn,
-      loginResult: loginResult.memberId,
+      member_info: {
+        memberId,
+        email,
+        job,
+        nickname,
+        notification,
+        frequency,
+        point,
+        isPro,
+        activity,
+      },
     };
   }
 
