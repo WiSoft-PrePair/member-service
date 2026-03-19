@@ -11,10 +11,10 @@ export class InterviewQuestionScheduler {
     private readonly logger: ILogger,
   ) {}
 
-  @Cron("0 30 8 * * 1-5", {
-    name: "daily-interview-questions",
-    timeZone: "Asia/Seoul",
-  })
+  // @Cron("0 30 8 * * 1-5", {
+  //   name: "daily-interview-questions",
+  //   timeZone: "Asia/Seoul",
+  // })
   async handleDailyNotification(): Promise<void> {
     this.logger.log(`Daily interview question scheduler triggered`, {
       module: "InterviewQuestionScheduler",
@@ -30,10 +30,10 @@ export class InterviewQuestionScheduler {
     }
   }
 
-  @Cron("0 30 8 * * 1", {
-    name: "weekly-interview-questions",
-    timeZone: "Asia/Seoul",
-  })
+  // @Cron("0 30 8 * * 1", {
+  //   name: "weekly-interview-questions",
+  //   timeZone: "Asia/Seoul",
+  // })
   async handleWeeklyNotification(): Promise<void> {
     this.logger.log(`Daily interview question scheduler triggered`, {
       module: "InterviewQuestionScheduler",
