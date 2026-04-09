@@ -227,6 +227,7 @@ export class KakaOauthService {
       refreshToken,
       accessTokenExpiresIn: accessToken.expiresIn,
       memberId: member.id,
+      nickname: member.nickname,
     };
   }
 

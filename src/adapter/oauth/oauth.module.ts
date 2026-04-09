@@ -14,6 +14,7 @@ import { OAUTH_REPOSITORY } from "@/domain/oauth";
 import { OAuthConnectionRepositoryImpl } from "@/adapter/oauth/persistence/oauth.repository-impl";
 import { OAuthRegistrationTokenService } from "@/application/oauth/oauth-registration-token.service";
 import { OAuthMemberRegisterCommandHandler } from "@/application/oauth/command/oauth-member-register.command";
+import { MemberWithdrawOAuthCleanupHandler } from "@/application/oauth/event/member-withdraw-oauth-cleanup.handler";
 import { EventStoreModule } from "@/adapter/shared/event-store";
 import { KAKAO_OAUTH_PROVIDER } from "@/application/oauth/ports/oauth-provider.port";
 
@@ -42,6 +43,7 @@ import { KAKAO_OAUTH_PROVIDER } from "@/application/oauth/ports/oauth-provider.p
     OAuthRegistrationTokenService,
     OAuthConnectionMapper,
     OAuthMemberRegisterCommandHandler,
+    MemberWithdrawOAuthCleanupHandler,
     {
       provide: OAUTH_REPOSITORY,
       useClass: OAuthConnectionRepositoryImpl,
