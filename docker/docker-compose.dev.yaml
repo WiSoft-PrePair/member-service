@@ -1,3 +1,5 @@
+name: prepair
+
 services:
   database:
     image: postgres:17
