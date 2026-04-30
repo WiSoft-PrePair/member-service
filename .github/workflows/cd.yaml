@@ -65,7 +65,7 @@ jobs:
             done
 
             echo "Health check 실패"
-            docker compose logs --tail=50 app
+            docker compose -f docker/docker-compose.prod.yaml logs --tail=50 app
             exit 1
           ENDSSH
 
@@ -79,5 +79,5 @@ jobs:
           TARGET_USER: ${{ secrets.RASPI_TARGET_USER }}
         run: |
           ssh -o StrictHostKeyChecking=no -o ProxyJump=$JUMP_USER@$JUMP_HOST:$JUMP_PORT $TARGET_USER@$TARGET_HOST /bin/bash << ENDSSH
-            docker image prune -af --filter "until=72h" || true
+            docker image prune -af --filter "until=72h" --filter "reference=ghcr.io/wisoft-prepair/backend-ts:*" || true
           ENDSSH
