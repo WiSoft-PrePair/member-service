@@ -15,22 +15,26 @@ import {
 export class KakaoOAuthProvider implements OAuthProvider {
   private readonly clientId: string;
   private readonly clientSecret: string;
-  private readonly redirectUri: string;
+  private readonly defaultRedirectUri: string;
 
   constructor(private readonly configService: ConfigService) {
     this.clientId = configService.getOrThrow<string>("KAKAO_CLIENT_ID");
     this.clientSecret = configService.getOrThrow<string>("KAKAO_CLIENT_SECRET");
-    this.redirectUri = configService.getOrThrow<string>("KAKAO_REDIRECT_URI");
+    this.defaultRedirectUri =
+      configService.getOrThrow<string>("KAKAO_REDIRECT_URI");
   }
 
-  async exchangeCodeForAccessToken(code: string): Promise<OAuthTokenResponse> {
+  async exchangeCodeForAccessToken(
+    code: string,
+    redirectUri?: string,
+  ): Promise<OAuthTokenResponse> {
     const tokenUrl = "https://kauth.kakao.com/oauth/token";
 
     const params = new URLSearchParams({
       grant_type: "authorization_code",
       client_id: this.clientId,
       client_secret: this.clientSecret,
-      redirect_uri: this.redirectUri,
+      redirect_uri: redirectUri ?? this.defaultRedirectUri,
       code,
     });
 

@@ -55,9 +55,9 @@ export class KakaOauthService {
     private readonly eventBus: EventBus,
   ) {}
 
-  async handleCallback(code: string) {
+  async handleCallback(code: string, redirectUri?: string) {
     const tokens: OAuthTokenResponse =
-      await this.oauthProvider.exchangeCodeForAccessToken(code);
+      await this.oauthProvider.exchangeCodeForAccessToken(code, redirectUri);
 
     const userInfo: OAuthUserInfo = await this.oauthProvider.getUserInfo(
       tokens.accessToken,
@@ -234,9 +234,13 @@ export class KakaOauthService {
   /**
    * [명시적 연동] 로그인된 회원이 카카오 계정을 연동
    */
-  async linkToExistingMember(memberId: string, code: string) {
+  async linkToExistingMember(
+    memberId: string,
+    code: string,
+    redirectUri?: string,
+  ) {
     const tokens: OAuthTokenResponse =
-      await this.oauthProvider.exchangeCodeForAccessToken(code);
+      await this.oauthProvider.exchangeCodeForAccessToken(code, redirectUri);
 
     const userInfo: OAuthUserInfo = await this.oauthProvider.getUserInfo(
       tokens.accessToken,

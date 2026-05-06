@@ -18,6 +18,7 @@ services:
     restart: unless-stopped
     networks:
       - prepair-member-network
+      - prepair-network
 
   app:
     image: ghcr.io/wisoft-prepair/backend-ts:latest
@@ -76,3 +77,5 @@ networks:
   logging-network:
     external: true
     name: logging-network
+  prepair-network:
+    external: true

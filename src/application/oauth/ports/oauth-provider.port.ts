@@ -12,7 +12,10 @@ export interface OAuthUserInfo {
 }
 
 export interface OAuthProvider {
-  exchangeCodeForAccessToken(code: string): Promise<OAuthTokenResponse>;
+  exchangeCodeForAccessToken(
+    code: string,
+    redirectUri?: string,
+  ): Promise<OAuthTokenResponse>;
 
   getUserInfo(accessToken: string): Promise<OAuthUserInfo>;
 

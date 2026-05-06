@@ -21,6 +21,7 @@ export const envSchema = z.object({
   KAKAO_CLIENT_ID: z.string(),
   KAKAO_CLIENT_SECRET: z.string(),
   KAKAO_REDIRECT_URI: z.string(),
+  KAKAO_ALLOWED_REDIRECT_URIS: z.string().default(""),
 
   LOG_LEVEL: z.enum(["error", "warn", "info", "debug"]).default("info"),
   SERVICE_NAME: z.string().default("prepair-member-service"),
