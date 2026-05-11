@@ -1,7 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { InterviewNotificationService } from "@/application/interview/service/interview-notification.service";
 import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
-import { Cron } from "@nestjs/schedule";
 
 @Injectable()
 export class InterviewQuestionScheduler {

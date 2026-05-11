@@ -2,8 +2,8 @@ import { Inject, Injectable } from "@nestjs/common";
 import { EventsHandler, IEventHandler } from "@nestjs/cqrs";
 import { MemberWithdrawEvent } from "@/domain/member/events";
 import {
-  type OauthRepository,
   OAUTH_REPOSITORY,
+  type OauthRepository,
 } from "@/domain/oauth/oauth.repository";
 import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
 
