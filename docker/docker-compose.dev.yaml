@@ -1,4 +1,4 @@
-name: prepair
+name: prepair-refactor
 
 services:
   database:

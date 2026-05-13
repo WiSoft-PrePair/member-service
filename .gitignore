@@ -20,6 +20,8 @@ prisma/migrations
 .idea/**/dictionaries
 .idea/**/shelf
 
+docs/refactor-plan
+
 .idea
 
 # AWS User-specific
@@ -237,7 +239,7 @@ web_modules/
 .env.development.local
 .env.test.local
 .env.production.local
-.env.local
+
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache

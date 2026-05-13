@@ -1,32 +1,25 @@
-import { NestFactory } from "@nestjs/core";
-import { AppModule } from "@/app.module";
-import { MikroORM } from "@mikro-orm/core";
-import { INestApplication, Logger, ValidationPipe } from "@nestjs/common";
-import { HttpExceptionFilter } from "@/adapter/shared/api/filters/http-exception.filter";
-import { LOGGER } from "@/adapter/shared/logger/logger.inferface";
+import { INestApplication } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { NestFactory } from "@nestjs/core";
+import { Logger } from "nestjs-pino";
+import { AppModule } from "@/app.module";
 import type { Env } from "@/config/env.config";
 
-async function bootstrap() {
-  const app: INestApplication = await NestFactory.create(AppModule, {
-    bufferLogs: true,
+async function bootstrap(): Promise<void> {
+  const isDev = process.env.NODE_ENV === "development";
+
+  const app: INestApplication<unknown> = await NestFactory.create(AppModule, {
+    bufferLogs: !isDev,
   });
 
-  const logger: Logger = app.get(LOGGER);
-  const configService: ConfigService = app.get(ConfigService<Env, true>);
+  if (!isDev) {
+    app.useLogger(app.get(Logger));
+  }
 
-  app.useGlobalPipes(new ValidationPipe({ transform: true }));
+  app.enableShutdownHooks();
 
-  // 로깅 기능이 추가된 HttpExceptionFilter 사용
-  app.useGlobalFilters(new HttpExceptionFilter(logger));
-
-  const orm: MikroORM = app.get(MikroORM);
-  await orm.schema.updateSchema({ safe: true });
-
-  const port: number = configService.get("PORT") as number;
-  await app.listen(port);
-
-  logger.log(`NestJS Application is running on port ${port}`);
+  const config = app.get(ConfigService<Env, true>);
+  await app.listen(config.get("PORT", { infer: true }));
 }
 
-bootstrap();
+void bootstrap();

@@ -1,38 +1,72 @@
-import { z } from "zod";
+import { Schema } from "effect";
 
-export const envSchema = z.object({
-  NODE_ENV: z.enum(["dev", "development", "prod", "production", "test"]),
-  PORT: z.coerce.number(),
-  POSTGRES_HOST: z.string().default("localhost"),
-  POSTGRES_PORT: z.coerce.number().default(5432),
-  POSTGRES_USER: z.string(),
-  POSTGRES_PASSWORD: z.string(),
-  POSTGRES_DB: z.string(),
+const CsvStringArray = Schema.transform(
+  Schema.String,
+  Schema.Array(Schema.String),
+  {
+    decode: (csv) =>
+      csv
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    encode: (arr) => arr.join(","),
+  },
+);
 
-  JWT_SECRET: z.string().default("secret"),
-  JWT_ACCESS_TOKEN_EXPIRES_IN: z.string().default("15m"),
-  JWT_REFRESH_TOKEN_EXPIRES_IN: z.string().default("7d"),
+export const EnvSchema = Schema.Struct({
+  // App
+  NODE_ENV: Schema.Literal("development", "test", "production"),
+  PORT: Schema.NumberFromString.pipe(Schema.int(), Schema.positive()),
 
-  SMTP_HOST: z.string(),
-  SMTP_USER: z.string(),
-  SMTP_PASS: z.string(),
-  SMTP_FROM: z.string(),
+  // Database
+  DATABASE_URL: Schema.String.pipe(Schema.startsWith("postgres")),
 
-  KAKAO_CLIENT_ID: z.string(),
-  KAKAO_CLIENT_SECRET: z.string(),
-  KAKAO_REDIRECT_URI: z.string(),
-  KAKAO_ALLOWED_REDIRECT_URIS: z.string().default(""),
+  // JWT — 변수명은 기존 .env 컨벤션 유지 (@nestjs/jwt signOptions.expiresIn 호환)
+  JWT_SECRET: Schema.String.pipe(Schema.minLength(32)),
+  JWT_ACCESS_TOKEN_EXPIRES_IN: Schema.String,
+  JWT_REFRESH_TOKEN_EXPIRES_IN: Schema.String,
 
-  LOG_LEVEL: z.enum(["error", "warn", "info", "debug"]).default("info"),
-  SERVICE_NAME: z.string().default("prepair-member-service"),
+  // SMTP (Phase 3: 이메일 인증)
+  SMTP_HOST: Schema.optional(Schema.String),
+  SMTP_PORT: Schema.optional(Schema.NumberFromString),
+  SMTP_USER: Schema.optional(Schema.String),
+  SMTP_PASS: Schema.optional(Schema.String),
+  SMTP_FROM: Schema.optional(Schema.String),
 
-  DATABASE_URL: z.string(),
+  // Kakao OAuth (Phase 5)
+  KAKAO_CLIENT_ID: Schema.optional(Schema.String),
+  KAKAO_CLIENT_SECRET: Schema.optional(Schema.String),
+  KAKAO_REDIRECT_URI: Schema.optional(Schema.String),
+  KAKAO_ALLOWED_REDIRECT_URIS: Schema.optional(CsvStringArray),
 
-  OPENAI_API_KEY: z.string(),
-  OPENAI_MODEL: z.string(),
-  MEMBER_SERVICE_URL: z.string(),
+  // Logging (Phase 6)
+  LOG_LEVEL: Schema.optional(
+    Schema.Literal("trace", "debug", "info", "warn", "error", "fatal"),
+  ),
+  SERVICE_NAME: Schema.optional(Schema.String),
 
-  INTERNAL_API_KEY: z.string(),
+  // S3 (파일 업로드 — 별도 Phase에서 다룰 예정이지만 EnvSchema는 미리 등록)
+  AWS_ACCESS_KEY_ID: Schema.optional(Schema.String),
+  AWS_SECRET_ACCESS_KEY: Schema.optional(Schema.String),
+  AWS_REGION: Schema.optional(Schema.String),
+  S3_BUCKET_NAME: Schema.optional(Schema.String),
+  S3_ENDPOINT: Schema.optional(Schema.String),
 });
 
-export type Env = z.infer<typeof envSchema>;
+export type Env = Schema.Schema.Type<typeof EnvSchema>;
+
+const decode = Schema.decodeUnknownSync(EnvSchema);
+
+// NestJS ConfigModule이 호출하는 validator. throw 가능 (NestJS 측 책임).
+export function loadEnv(raw: Record<string, unknown>): Env {
+  try {
+    return decode({
+      ...raw,
+      JWT_ACCESS_TOKEN_EXPIRES_IN: raw.JWT_ACCESS_TOKEN_EXPIRES_IN ?? "15m",
+      JWT_REFRESH_TOKEN_EXPIRES_IN: raw.JWT_REFRESH_TOKEN_EXPIRES_IN ?? "14d",
+      LOG_LEVEL: raw.LOG_LEVEL ?? "info",
+    });
+  } catch (err) {
+    throw new Error(`Invalid env:\n${String(err)}`);
+  }
+}
