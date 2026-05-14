@@ -1,38 +1,42 @@
 import { MikroOrmModule } from "@mikro-orm/nestjs";
-import { defineConfig, PostgreSqlDriver } from "@mikro-orm/postgresql";
+import { PostgreSqlDriver } from "@mikro-orm/postgresql";
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import { CqrsModule } from "@nestjs/cqrs";
-import { ScheduleModule } from "@nestjs/schedule";
 import { LoggerModule } from "nestjs-pino";
 import { AppController } from "@/app.controller";
-import { type Env, loadEnv } from "@/config/env.config";
-import { EffectRuntimeModule } from "@/infrastructure/effect/effect-runtime.module";
+import { Env, loadEnv } from "@/config/env.config";
+import { SharedKernelModule } from "@/shared-kernel/shared-kernel.module";
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, validate: loadEnv }),
-    ...(process.env.NODE_ENV !== "development" ? [LoggerModule.forRoot()] : []),
-    MikroOrmModule.forRootAsync({
-      driver: PostgreSqlDriver,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService<Env, true>) =>
-        defineConfig({
-          driver: PostgreSqlDriver,
-          clientUrl: config.get("DATABASE_URL", { infer: true }),
-          entities: ["./dist/**/*.entity.js"],
-          entitiesTs: ["./src/**/*.entity.ts"],
-          migrations: {
-            path: "./dist/mikro/migrations",
-            pathTs: "./mikro/migrations",
-          },
-          discovery: { warnWhenNoEntities: false },
-          debug: config.get("NODE_ENV", { infer: true }) === "development",
-        }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validate: loadEnv,
     }),
-    CqrsModule.forRoot(),
-    ScheduleModule.forRoot(),
-    EffectRuntimeModule,
+    LoggerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<Env, true>) => ({
+        pinoHttp: {
+          level: config.get("LOG_LEVEL", { infer: true }),
+          transport:
+            config.get("NODE_ENV", { infer: true }) === "development"
+              ? { target: "pino-pretty" }
+              : undefined,
+        },
+      }),
+    }),
+    MikroOrmModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<Env, true>) => ({
+        driver: PostgreSqlDriver,
+        clientUrl: config.get("DATABASE_URL", { infer: true }),
+        entities: ["./dist/**/*.entity.js"],
+        entitiesTs: ["./src/**/*.entity.ts"],
+        debug: config.get("NODE_ENV", { infer: true }) === "development",
+        discovery: { warnWhenNoEntities: false },
+      }),
+    }),
+    SharedKernelModule,
   ],
   controllers: [AppController],
 })

@@ -1,72 +1,42 @@
-import { Schema } from "effect";
+import { ZodObject, z } from "zod";
 
-const CsvStringArray = Schema.transform(
-  Schema.String,
-  Schema.Array(Schema.String),
-  {
-    decode: (csv) =>
-      csv
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-    encode: (arr) => arr.join(","),
-  },
-);
+const EnvSchema: ZodObject = z.object({
+  NODE_ENV: z
+    .enum(["development", "test", "production"])
+    .default("development"),
+  PORT: z.coerce.number().int().positive().default(7200),
 
-export const EnvSchema = Schema.Struct({
-  // App
-  NODE_ENV: Schema.Literal("development", "test", "production"),
-  PORT: Schema.NumberFromString.pipe(Schema.int(), Schema.positive()),
+  DATABASE_URL: z.string().url(),
 
-  // Database
-  DATABASE_URL: Schema.String.pipe(Schema.startsWith("postgres")),
+  JWT_SECRET: z.string().min(16),
+  JWT_ACCESS_TOKEN_EXPIRES_IN: z.string().default("15m"),
+  JWT_REFRESH_TOKEN_EXPIRES_IN: z.string().default("7d"),
 
-  // JWT — 변수명은 기존 .env 컨벤션 유지 (@nestjs/jwt signOptions.expiresIn 호환)
-  JWT_SECRET: Schema.String.pipe(Schema.minLength(32)),
-  JWT_ACCESS_TOKEN_EXPIRES_IN: Schema.String,
-  JWT_REFRESH_TOKEN_EXPIRES_IN: Schema.String,
+  SMTP_HOST: z.string().default("smtp.gmail.com"),
+  SMTP_PORT: z.coerce.number().default(587),
+  SMTP_USER: z.string().email(),
+  SMTP_PASS: z.string(),
 
-  // SMTP (Phase 3: 이메일 인증)
-  SMTP_HOST: Schema.optional(Schema.String),
-  SMTP_PORT: Schema.optional(Schema.NumberFromString),
-  SMTP_USER: Schema.optional(Schema.String),
-  SMTP_PASS: Schema.optional(Schema.String),
-  SMTP_FROM: Schema.optional(Schema.String),
+  KAKAO_CLIENT_ID: z.string(),
+  KAKAO_CLIENT_SECRET: z.string(),
+  KAKAO_REDIRECT_URI: z.string().url(),
+  KAKAO_ALLOWED_REDIRECT_URIS: z.string(), // comma-separated
 
-  // Kakao OAuth (Phase 5)
-  KAKAO_CLIENT_ID: Schema.optional(Schema.String),
-  KAKAO_CLIENT_SECRET: Schema.optional(Schema.String),
-  KAKAO_REDIRECT_URI: Schema.optional(Schema.String),
-  KAKAO_ALLOWED_REDIRECT_URIS: Schema.optional(CsvStringArray),
-
-  // Logging (Phase 6)
-  LOG_LEVEL: Schema.optional(
-    Schema.Literal("trace", "debug", "info", "warn", "error", "fatal"),
-  ),
-  SERVICE_NAME: Schema.optional(Schema.String),
-
-  // S3 (파일 업로드 — 별도 Phase에서 다룰 예정이지만 EnvSchema는 미리 등록)
-  AWS_ACCESS_KEY_ID: Schema.optional(Schema.String),
-  AWS_SECRET_ACCESS_KEY: Schema.optional(Schema.String),
-  AWS_REGION: Schema.optional(Schema.String),
-  S3_BUCKET_NAME: Schema.optional(Schema.String),
-  S3_ENDPOINT: Schema.optional(Schema.String),
+  LOG_LEVEL: z
+    .enum(["fatal", "error", "warn", "info", "debug", "trace"])
+    .default("info"),
+  SERVICE_NAME: z.string().default("prepair-member-service"),
 });
 
-export type Env = Schema.Schema.Type<typeof EnvSchema>;
+export type Env = z.infer<typeof EnvSchema>;
 
-const decode = Schema.decodeUnknownSync(EnvSchema);
-
-// NestJS ConfigModule이 호출하는 validator. throw 가능 (NestJS 측 책임).
 export function loadEnv(raw: Record<string, unknown>): Env {
-  try {
-    return decode({
-      ...raw,
-      JWT_ACCESS_TOKEN_EXPIRES_IN: raw.JWT_ACCESS_TOKEN_EXPIRES_IN ?? "15m",
-      JWT_REFRESH_TOKEN_EXPIRES_IN: raw.JWT_REFRESH_TOKEN_EXPIRES_IN ?? "14d",
-      LOG_LEVEL: raw.LOG_LEVEL ?? "info",
-    });
-  } catch (err) {
-    throw new Error(`Invalid env:\n${String(err)}`);
+  const result = EnvSchema.safeParse(raw);
+  if (!result.success) {
+    const issues: string = result.error.issues
+      .map((i): string => `  - ${i.path.join(".")}: ${i.message}`)
+      .join("\n");
+    throw new Error(`Invalid environment configuration:\n${issues}`);
   }
+  return result.data;
 }

@@ -20,7 +20,7 @@ prisma/migrations
 .idea/**/dictionaries
 .idea/**/shelf
 
-docs/refactor-plan
+#docs/refactor-plan
 
 .idea
 
