@@ -579,7 +579,7 @@ import { Inject, Injectable, Logger } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
 
 import { MemberWithdrawnEvent } from "@/contexts/identity/domain/member/events/member-withdrawn.event";
-import type { DomainEvent } from "@/contexts/identity/domain/shared/domain-event.base";
+import type { DomainEvent } from "@/shared-kernel/domain/domain-event.base";
 
 import { OAUTH_CONNECTION_REPOSITORY, type OAuthConnectionRepository } from "../ports/oauth-connection.repository.port";
 import { OAUTH_CONNECTION_READ_REPOSITORY, type OAuthConnectionReadRepository } from "../ports/oauth-connection-read.repository.port";

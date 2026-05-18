@@ -4,6 +4,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { LoggerModule } from "nestjs-pino";
 import { AppController } from "@/app.controller";
+import { EventStoreModule } from "@/bounded-context/member/adapter/out/persistence/event-store/event-store.module";
 import { Env, loadEnv } from "@/config/env.config";
 import { SharedKernelModule } from "@/shared-kernel/shared-kernel.module";
 
@@ -26,6 +27,7 @@ import { SharedKernelModule } from "@/shared-kernel/shared-kernel.module";
       }),
     }),
     MikroOrmModule.forRootAsync({
+      driver: PostgreSqlDriver,
       inject: [ConfigService],
       useFactory: (config: ConfigService<Env, true>) => ({
         driver: PostgreSqlDriver,
@@ -37,6 +39,7 @@ import { SharedKernelModule } from "@/shared-kernel/shared-kernel.module";
       }),
     }),
     SharedKernelModule,
+    EventStoreModule,
   ],
   controllers: [AppController],
 })

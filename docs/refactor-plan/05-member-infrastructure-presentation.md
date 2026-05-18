@@ -6,21 +6,26 @@
 
 Phase 04에서 정의한 Port들의 실제 Adapter 구현을 만들고, REST 엔드포인트를 노출해서 **회원가입 ~ 조회 ~ 탈퇴 E2E 시나리오**를 통과시킨다.
 
+> **이번 phase에서 처음 등장하는 폴더**: `adapter/in/web/` 와 `adapter/out/*`.
+> - `adapter/in/web/` = Driving Adapter. HTTP 요청을 받아 Phase 04의 **inbound port(UseCase 인터페이스)** 를 호출한다.
+> - `adapter/out/persistence/`, `adapter/out/security/`, `adapter/out/email/` = Driven Adapter. Phase 04의 **outbound port** 를 각자의 기술(MikroORM / bcrypt / Nodemailer)로 implements 한다.
+> - 기존에 "infrastructure", "presentation"이라 부르던 폴더 두 개를 `adapter/` 한 우산 아래로 모은다. 이렇게 하면 폴더 이름만 봐도 헥사고날의 in/out 방향이 드러난다.
+
 ---
 
 ## 산출물 체크리스트
 
-### Read Model 인프라 (`src/contexts/identity/infrastructure/persistence/read-models/member/`)
+### Driven Adapter — Read Model (`src/contexts/identity/adapter/out/persistence/read-models/member/`)
 - [ ] `member-read.entity.ts` — MikroORM 엔티티
 - [ ] `mikro-member-read.repository.impl.ts` — `MemberReadRepository` 구현
 
-### Security (`src/contexts/identity/infrastructure/security/`)
+### Driven Adapter — Security (`src/contexts/identity/adapter/out/security/`)
 - [ ] `bcrypt-password-encoder.ts` — `PasswordEncoder` 구현
 
-### Email (`src/contexts/identity/infrastructure/email/`)
+### Driven Adapter — Email (`src/contexts/identity/adapter/out/email/`)
 - [ ] `nodemailer.email-sender.ts` — `EmailSender` 구현 (Gmail SMTP)
 
-### Presentation (`src/contexts/identity/presentation/member/`)
+### Driving Adapter — REST (`src/contexts/identity/adapter/in/web/member/`)
 - [ ] `member.controller.ts`
 - [ ] `dto/sign-up.request.dto.ts`
 - [ ] `dto/update-member.request.dto.ts`
@@ -59,7 +64,7 @@ pnpm add -D @types/bcryptjs @types/nodemailer
 ### 2-1. `member-read.entity.ts`
 
 ```typescript
-// src/contexts/identity/infrastructure/persistence/read-models/member/member-read.entity.ts
+// src/contexts/identity/adapter/out/persistence/read-models/member/member-read.entity.ts
 import { Entity, Enum, Index, PrimaryKey, Property } from "@mikro-orm/core";
 
 import { NotificationChannel } from "@/contexts/identity/domain/member/enums/notification.enum";
@@ -106,14 +111,14 @@ export class MemberReadEntity {
 ### 2-2. Repository 구현
 
 ```typescript
-// src/contexts/identity/infrastructure/persistence/read-models/member/mikro-member-read.repository.impl.ts
+// src/contexts/identity/adapter/out/persistence/read-models/member/mikro-member-read.repository.impl.ts
 import { Injectable } from "@nestjs/common";
 import { EntityManager } from "@mikro-orm/postgresql";
 
 import {
   type MemberReadDto,
   type MemberReadRepository,
-} from "@/contexts/identity/application/member/ports/member-read.repository.port";
+} from "@/contexts/identity/application/member/ports/out/member-read.repository.port";
 
 import { MemberReadEntity } from "./member-read.entity";
 
@@ -200,11 +205,11 @@ export class MikroMemberReadRepository implements MemberReadRepository {
 ## Step 3. Bcrypt Password Encoder
 
 ```typescript
-// src/contexts/identity/infrastructure/security/bcrypt-password-encoder.ts
+// src/contexts/identity/adapter/out/security/bcrypt-password-encoder.ts
 import { Injectable } from "@nestjs/common";
 import * as bcrypt from "bcryptjs";
 
-import type { PasswordEncoder } from "@/contexts/identity/application/member/ports/password-encoder.port";
+import type { PasswordEncoder } from "@/contexts/identity/application/member/ports/out/password-encoder.port";
 
 @Injectable()
 export class BcryptPasswordEncoder implements PasswordEncoder {
@@ -225,12 +230,12 @@ export class BcryptPasswordEncoder implements PasswordEncoder {
 ## Step 4. Nodemailer Email Sender
 
 ```typescript
-// src/contexts/identity/infrastructure/email/nodemailer.email-sender.ts
+// src/contexts/identity/adapter/out/email/nodemailer.email-sender.ts
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import * as nodemailer from "nodemailer";
 
-import type { EmailSender } from "@/contexts/identity/application/member/ports/email-sender.port";
+import type { EmailSender } from "@/contexts/identity/application/member/ports/out/email-sender.port";
 import type { Env } from "@/config/env.config";
 
 @Injectable()
@@ -342,7 +347,7 @@ app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 ## Step 6. DTO
 
 ```typescript
-// src/contexts/identity/presentation/member/dto/sign-up.request.dto.ts
+// src/contexts/identity/adapter/in/web/member/dto/sign-up.request.dto.ts
 import { IsEmail, IsEnum, IsString, MinLength } from "class-validator";
 import { NotificationChannel } from "@/contexts/identity/domain/member/enums/notification.enum";
 import { NotificationFrequency } from "@/contexts/identity/domain/member/enums/frequency.enum";
@@ -418,12 +423,14 @@ export class MemberResponseDto {
 
 ---
 
-## Step 7. MemberController
+## Step 7. MemberController (Driving Adapter)
 
 > Auth 가드는 Phase 06에서 추가된다. 이번 Phase에서는 우선 `@Public()` 데코레이터만 두고, 인증이 필요한 엔드포인트는 `@Body()`에 `memberId`를 받는 임시 방식으로 동작시킨 뒤 Phase 06에서 `@CurrentUser()`로 교체한다.
+>
+> **의존성 방향 확인**: Controller는 Phase 04의 inbound port(`SignUpMemberUseCase` 등)에 의존한다. 구체 클래스를 import하지만 타입은 인터페이스 계약을 만족하므로 헥사고날 규칙 위반이 아니다.
 
 ```typescript
-// src/contexts/identity/presentation/member/member.controller.ts
+// src/contexts/identity/adapter/in/web/member/member.controller.ts
 import { Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query } from "@nestjs/common";
 import { Inject } from "@nestjs/common";
 
@@ -437,7 +444,7 @@ import { WithdrawMemberUseCase } from "@/contexts/identity/application/member/us
 import { MemberQueryService } from "@/contexts/identity/application/member/queries/member-query.service";
 import { EmailVerificationService } from "@/contexts/identity/application/member/services/email-verification.service";
 
-import { EMAIL_SENDER, type EmailSender } from "@/contexts/identity/application/member/ports/email-sender.port";
+import { EMAIL_SENDER, type EmailSender } from "@/contexts/identity/application/member/ports/out/email-sender.port";
 
 import {
   SignUpRequestDto,
@@ -543,17 +550,21 @@ export class MemberController {
 
 ## Step 8. Identity Module 통합
 
+> 이 모듈이 헥사고날 의존성 결선의 **마지막 단추**다. `application/ports/out/` 에 정의된 Symbol 토큰을 `adapter/out/*` 구현체에 바인딩한다.
+
 ```typescript
 // src/contexts/identity/identity.module.ts
 import { Module } from "@nestjs/common";
 import { MikroOrmModule } from "@mikro-orm/nestjs";
 
-import { MemberReadEntity } from "./infrastructure/persistence/read-models/member/member-read.entity";
-import { MikroMemberReadRepository } from "./infrastructure/persistence/read-models/member/mikro-member-read.repository.impl";
+// --- Driven Adapters (out) ---
+import { MemberReadEntity } from "./adapter/out/persistence/read-models/member/member-read.entity";
+import { MikroMemberReadRepository } from "./adapter/out/persistence/read-models/member/mikro-member-read.repository.impl";
 
-import { BcryptPasswordEncoder } from "./infrastructure/security/bcrypt-password-encoder";
-import { NodemailerEmailSender } from "./infrastructure/email/nodemailer.email-sender";
+import { BcryptPasswordEncoder } from "./adapter/out/security/bcrypt-password-encoder";
+import { NodemailerEmailSender } from "./adapter/out/email/nodemailer.email-sender";
 
+// --- Application (코어) ---
 import { EventSourcedMemberRepository } from "./application/member/repositories/event-sourced-member.repository";
 import { MemberProjector } from "./application/member/projections/member.projector";
 import { MemberQueryService } from "./application/member/queries/member-query.service";
@@ -567,35 +578,39 @@ import { ChangeEmailUseCase } from "./application/member/use-cases/change-email.
 import { AddPointUseCase } from "./application/member/use-cases/add-point.use-case";
 import { WithdrawMemberUseCase } from "./application/member/use-cases/withdraw-member.use-case";
 
-import { MEMBER_REPOSITORY } from "./application/member/ports/member-event-sourced.repository.port";
-import { MEMBER_READ_REPOSITORY } from "./application/member/ports/member-read.repository.port";
-import { PASSWORD_ENCODER } from "./application/member/ports/password-encoder.port";
-import { EMAIL_SENDER } from "./application/member/ports/email-sender.port";
+// --- Outbound Port Symbols ---
+import { MEMBER_REPOSITORY } from "./application/member/ports/out/member.repository.port";
+import { MEMBER_READ_REPOSITORY } from "./application/member/ports/out/member-read.repository.port";
+import { PASSWORD_ENCODER } from "./application/member/ports/out/password-encoder.port";
+import { EMAIL_SENDER } from "./application/member/ports/out/email-sender.port";
 
-import { MemberController } from "./presentation/member/member.controller";
+// --- Driving Adapter (in) ---
+import { MemberController } from "./adapter/in/web/member/member.controller";
 
 @Module({
   imports: [MikroOrmModule.forFeature([MemberReadEntity])],
   controllers: [MemberController],
   providers: [
-    // Repositories
+    // Driven Adapters
     MikroMemberReadRepository,
-    EventSourcedMemberRepository,
-    { provide: MEMBER_REPOSITORY, useExisting: EventSourcedMemberRepository },
-    { provide: MEMBER_READ_REPOSITORY, useExisting: MikroMemberReadRepository },
-
-    // Infrastructure
     BcryptPasswordEncoder,
     NodemailerEmailSender,
+
+    // Outbound Port 바인딩 (Symbol → 구현체)
+    { provide: MEMBER_READ_REPOSITORY, useExisting: MikroMemberReadRepository },
     { provide: PASSWORD_ENCODER, useExisting: BcryptPasswordEncoder },
     { provide: EMAIL_SENDER, useExisting: NodemailerEmailSender },
 
-    // Services
+    // Repository 합성기 (application 안에 있는 outbound port 구현)
+    EventSourcedMemberRepository,
+    { provide: MEMBER_REPOSITORY, useExisting: EventSourcedMemberRepository },
+
+    // Application 서비스
     EmailVerificationService,
     MemberQueryService,
     MemberProjector,
 
-    // UseCases
+    // Inbound Port 구현체 (UseCase 클래스 — NestJS는 클래스를 그대로 토큰으로 사용)
     SignUpMemberUseCase,
     UpdateMemberUseCase,
     ChangePasswordUseCase,

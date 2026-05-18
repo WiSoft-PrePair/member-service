@@ -43,7 +43,7 @@
 상수로 빼서 환경변수화 가능하게 만든다:
 
 ```typescript
-// src/contexts/identity/application/shared/snapshot-policy.ts
+// src/contexts/identity/application/policies/snapshot-policy.ts
 export const SNAPSHOT_POLICY = {
   Member: 20,
   OAuthConnection: 50,
@@ -62,7 +62,7 @@ export const SNAPSHOT_POLICY = {
 // scripts/replay-aggregate.ts
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "@/app.module";
-import { EVENT_STORE, type EventStore } from "@/contexts/identity/application/shared/event-store.port";
+import { EVENT_STORE, type EventStore } from "@/contexts/identity/application/ports/event-store.port";
 import { Member } from "@/contexts/identity/domain/member/member.aggregate";
 
 async function main() {
@@ -117,7 +117,7 @@ Projection 코드 변경 시 Read DB 전체 재구축이 필요한 경우.
 // scripts/rebuild-projection.ts
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "@/app.module";
-import { EVENT_STORE, type EventStore } from "@/contexts/identity/application/shared/event-store.port";
+import { EVENT_STORE, type EventStore } from "@/contexts/identity/application/ports/event-store.port";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { MikroORM } from "@mikro-orm/postgresql";
 import { MemberReadEntity } from "@/contexts/identity/infrastructure/persistence/read-models/member/member-read.entity";

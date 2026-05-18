@@ -1,9 +1,10 @@
 import { Global, Module } from "@nestjs/common";
+import { EventStoreModule } from "@/bounded-context/member/adapter/out/persistence/event-store/event-store.module";
 
 @Global()
 @Module({
-  imports: [],
+  imports: [EventStoreModule],
   providers: [],
-  exports: [],
+  exports: [EventStoreModule],
 })
 export class SharedKernelModule {}

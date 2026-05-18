@@ -11,31 +11,38 @@
 3. **Snapshot Store**: N개 이벤트마다 Aggregate 상태 JSON 저장
 4. **Projection Dispatcher**: 이벤트가 저장되면 Projector들이 자동 구독
 
+> **폴더 구조 원칙**: 헥사고날의 in/out 방향을 폴더에 그대로 드러낸다.
+> - `application/ports/out/` — 코어가 외부에 위임할 계약 (`EventStore`, `SnapshotStore`, `EventPublisher`) — **이번 phase의 세 port 모두 outbound다.**
+> - `application/ports/in/` — 코어가 외부에 노출할 계약(UseCase 인터페이스). 이번 phase에서는 만들지 않는다 (Phase 04에서 등장).
+> - `adapter/out/` — outbound port의 기술적 구현체(`MikroEventStore`, `ProjectionDispatcher`). **이 phase에서 만드는 인프라 코드는 전부 여기로 간다.**
+> - `adapter/in/` — driving adapter(REST Controller 등). Phase 05에서 등장.
+
 이 Phase가 부실하면 이후 모든 Phase가 와르르 무너진다. **여기에서는 테스트 커버리지를 90% 이상 확보한다.**
 
 ---
 
 ## 산출물 체크리스트
 
-### 도메인 베이스 (`src/contexts/identity/domain/shared/`)
+### 도메인 베이스 (`src/shared-kernel/domain/`)
 - [ ] `domain-event.base.ts` — `DomainEvent` 추상 클래스
-- [ ] `aggregate-root.base.ts` — `AggregateRoot` 추상 클래스 (`replay`, `applyEvent`, `uncommittedEvents`, `markEventsAsCommitted`, `version`)
+- [ ] `aggregate-root.base.ts` — `AggregateRoot` 추상 클래스 (`apply`, `when`, `loadFromHistory`, `getUncommittedEvents`, `markAsCommitted`, `version`)
 - [ ] `value-object.base.ts` — `ValueObject<T>` 추상 클래스 (`equals`)
 
-### 애플리케이션 Port (`src/contexts/identity/application/shared/`)
+### 애플리케이션 Outbound Port (`src/contexts/identity/application/ports/out/`)
+> ES 인프라 공용 outbound port. 코어가 외부(DB, 메시지 브로커)에 위임하기 위한 계약이므로 `ports/out/` 아래에 둔다. feature별 port는 각 feature 폴더(`application/<feature>/ports/out/`)에 둔다.
 - [ ] `event-store.port.ts` — `EventStore` 인터페이스
 - [ ] `snapshot-store.port.ts` — `SnapshotStore` 인터페이스
 - [ ] `event-publisher.port.ts` — `EventPublisher` 인터페이스 (ProjectionDispatcher 추상)
 
-### 인프라 구현 (`src/contexts/identity/infrastructure/persistence/event-store/`)
+### Driven Adapter — 영속화 (`src/contexts/identity/adapter/out/persistence/event-store/`)
 - [ ] `event-store.entity.ts` — MikroORM 엔티티
 - [ ] `aggregate-snapshot.entity.ts` — MikroORM 엔티티
 - [ ] `mikro-event-store.impl.ts` — `EventStore` 구현
 - [ ] `mikro-snapshot-store.impl.ts` — `SnapshotStore` 구현
 - [ ] `event-store.module.ts` — DI 모듈
 
-### ProjectionDispatcher (`src/contexts/identity/infrastructure/projections/`)
-- [ ] `projection-dispatcher.ts` — NestJS `EventEmitter2` 래퍼
+### Driven Adapter — Projection Dispatch (`src/contexts/identity/adapter/out/projections/`)
+- [ ] `projection-dispatcher.ts` — `EventPublisher` 구현 (NestJS `EventEmitter2` 래퍼)
 
 ### 통합 (`src/shared-kernel/shard-kernel.module.ts`)
 - [ ] EventStore/SnapshotStore/Dispatcher 전역 등록 + export
@@ -62,7 +69,7 @@ pnpm add -D @types/uuid
 ### 2-1. `value-object.base.ts`
 
 ```typescript
-// src/contexts/identity/domain/shared/value-object.base.ts
+// src/shared-kernel/domain/value-object.base.ts
 export abstract class ValueObject<Props extends object> {
   protected readonly props: Props;
 
@@ -80,13 +87,24 @@ export abstract class ValueObject<Props extends object> {
 ### 2-2. `domain-event.base.ts`
 
 ```typescript
-// src/contexts/identity/domain/shared/domain-event.base.ts
+// src/shared-kernel/domain/domain-event.base.ts
 import { randomUUID } from "node:crypto";
 
 export interface DomainEventMetadata {
   readonly correlationId?: string;
   readonly causationId?: string;
   readonly actorId?: string;
+}
+
+export interface DomainEventArgs<Payload = unknown> {
+  aggregateId: string;
+  aggregateType: string;
+  eventType: string;
+  eventVersion: number;
+  payload: Payload;
+  metadata?: DomainEventMetadata;
+  eventId?: string;
+  occurredAt?: Date;
 }
 
 export abstract class DomainEvent<Payload = unknown> {
@@ -99,16 +117,7 @@ export abstract class DomainEvent<Payload = unknown> {
   public readonly payload: Payload;
   public readonly metadata: DomainEventMetadata;
 
-  protected constructor(args: {
-    aggregateId: string;
-    aggregateType: string;
-    eventType: string;
-    eventVersion: number;
-    payload: Payload;
-    metadata?: DomainEventMetadata;
-    eventId?: string;
-    occurredAt?: Date;
-  }) {
+  protected constructor(args: DomainEventArgs<Payload>) {
     this.eventId = args.eventId ?? randomUUID();
     this.occurredAt = args.occurredAt ?? new Date();
     this.aggregateId = args.aggregateId;
@@ -118,14 +127,31 @@ export abstract class DomainEvent<Payload = unknown> {
     this.payload = args.payload;
     this.metadata = args.metadata ?? {};
   }
+
+  /**
+   * 이벤트 스토어 row 복원 전용 팩토리.
+   * 도메인 비즈니스 로직에서는 호출 금지 — 구체 이벤트 클래스의 생성자를 직접 사용할 것.
+   */
+  static restore(args: DomainEventArgs): DomainEvent {
+    return new RestoredDomainEvent(args);
+  }
 }
+
+class RestoredDomainEvent extends DomainEvent {}
 ```
+
+> **메모**: `restore`는 EventStore가 raw row를 다시 메모리로 올릴 때만 쓴다. 도메인 비즈니스 로직에서 새 이벤트를 만들 때는 반드시 `MemberRegisteredEvent` 같은 *구체 서브클래스의 생성자*를 호출해야 한다. `RestoredDomainEvent`는 모듈 스코프에 단 한 번 정의되므로 V8 hidden class 캐시가 유지되어 매 row마다 클래스를 새로 만드는 비용이 없다.
 
 ### 2-3. `aggregate-root.base.ts`
 
 ```typescript
-// src/contexts/identity/domain/shared/aggregate-root.base.ts
+// src/shared-kernel/domain/aggregate-root.base.ts
 import { DomainEvent } from "./domain-event.base";
+
+export interface AggregateSnapshotState {
+  readonly state: object;
+  readonly version: number;
+}
 
 export abstract class AggregateRoot {
   protected _version: number = 0;
@@ -138,55 +164,71 @@ export abstract class AggregateRoot {
     return this._version;
   }
 
-  public get uncommittedEvents(): readonly DomainEvent[] {
+  /**
+   * 아직 EventStore에 저장되지 않은 이벤트 목록
+   * (NestJS CQRS / Greg Young 컨벤션: getter 대신 명시적 메서드)
+   */
+  public getUncommittedEvents(): readonly DomainEvent[] {
     return this._uncommittedEvents;
   }
 
-  public markEventsAsCommitted(): void {
+  /**
+   * EventStore가 append를 성공한 뒤 호출하여 버퍼를 비운다.
+   * (NestJS CQRS의 `commit()`은 발행도 겸하므로 의미 충돌을 피해 이름을 분리)
+   */
+  public markAsCommitted(): void {
     this._uncommittedEvents = [];
   }
 
   /**
-   * 새 이벤트 발행 — 상태 변경 메서드 안에서 호출
+   * 새 이벤트를 발행한다 — 도메인 메서드 안에서 호출.
+   * 내부적으로 `when()`을 호출해 상태를 갱신하고 미커밋 버퍼에 쌓는다.
+   * (NestJS CQRS / Axon Framework 컨벤션)
    */
-  protected raise(event: DomainEvent): void {
-    this.applyEvent(event);
+  protected apply(event: DomainEvent): void {
+    this.when(event);
     this._version = event.eventVersion;
     this._uncommittedEvents.push(event);
   }
 
   /**
-   * 저장된 이벤트로 Aggregate 복원
+   * EventStore에서 읽어온 과거 이벤트로 Aggregate 상태를 복원한다.
+   * 미커밋 버퍼에는 쌓지 않는다.
+   * (NestJS CQRS / Greg Young SimpleCQRS 컨벤션)
    */
-  public replay(events: readonly DomainEvent[]): void {
+  public loadFromHistory(events: readonly DomainEvent[]): void {
     for (const event of events) {
-      this.applyEvent(event);
+      this.when(event);
       this._version = event.eventVersion;
     }
   }
 
   /**
-   * 각 Aggregate가 이벤트별 상태 변경 로직을 구현
+   * 이벤트가 발생했을 때 Aggregate 상태가 어떻게 변하는지 정의한다.
+   * (F# DDD / Vaughn Vernon이 자주 쓰는 `when` 컨벤션 — `apply`와 의미 분리)
    */
-  protected abstract applyEvent(event: DomainEvent): void;
+  protected abstract when(event: DomainEvent): void;
 
   /**
-   * Snapshot 복원용 hook
+   * Snapshot 적재/생성 hook
    */
-  public abstract loadFromSnapshot(state: object, version: number): void;
-  public abstract toSnapshot(): object;
+  public abstract loadFromSnapshot(snapshot: AggregateSnapshotState): void;
+  public abstract createSnapshot(): object;
 }
 ```
 
 ---
 
-## Step 3. Application Port 작성
+## Step 3. Application Outbound Port 작성
+
+> 이 셋은 모두 **Driven Port**(코어가 외부에 위임할 계약)다. 그러므로 `application/ports/out/` 폴더에 둔다.
+> 향후 Driving Port(UseCase 인터페이스)는 feature별로 `application/<feature>/ports/in/` 에 정의된다.
 
 ### 3-1. `event-store.port.ts`
 
 ```typescript
-// src/contexts/identity/application/shared/event-store.port.ts
-import type { DomainEvent } from "@/contexts/identity/domain/shared/domain-event.base";
+// src/contexts/identity/application/ports/out/event-store.port.ts
+import type { DomainEvent } from "@/shared-kernel/domain/domain-event.base";
 
 export const EVENT_STORE = Symbol("EVENT_STORE");
 
@@ -229,7 +271,7 @@ export class ConcurrencyException extends Error {
 ### 3-2. `snapshot-store.port.ts`
 
 ```typescript
-// src/contexts/identity/application/shared/snapshot-store.port.ts
+// src/contexts/identity/application/ports/out/snapshot-store.port.ts
 export const SNAPSHOT_STORE = Symbol("SNAPSHOT_STORE");
 
 export interface AggregateSnapshot {
@@ -252,8 +294,8 @@ export interface SnapshotStore {
 ### 3-3. `event-publisher.port.ts`
 
 ```typescript
-// src/contexts/identity/application/shared/event-publisher.port.ts
-import type { DomainEvent } from "@/contexts/identity/domain/shared/domain-event.base";
+// src/contexts/identity/application/ports/out/event-publisher.port.ts
+import type { DomainEvent } from "@/shared-kernel/domain/domain-event.base";
 
 export const EVENT_PUBLISHER = Symbol("EVENT_PUBLISHER");
 
@@ -266,10 +308,12 @@ export interface EventPublisher {
 
 ## Step 4. MikroORM 엔티티 정의
 
+> 엔티티는 DB 어댑터의 일부이므로 `adapter/out/persistence/event-store/` 아래에 둔다.
+
 ### 4-1. `event-store.entity.ts`
 
 ```typescript
-// src/contexts/identity/infrastructure/persistence/event-store/event-store.entity.ts
+// src/contexts/identity/adapter/out/persistence/event-store/event-store.entity.ts
 import { Entity, PrimaryKey, Property, Unique, Index } from "@mikro-orm/core";
 
 @Entity({ tableName: "event_store" })
@@ -309,7 +353,7 @@ export class EventStoreEntity {
 ### 4-2. `aggregate-snapshot.entity.ts`
 
 ```typescript
-// src/contexts/identity/infrastructure/persistence/event-store/aggregate-snapshot.entity.ts
+// src/contexts/identity/adapter/out/persistence/event-store/aggregate-snapshot.entity.ts
 import { Entity, PrimaryKey, Property } from "@mikro-orm/core";
 
 @Entity({ tableName: "aggregate_snapshots" })
@@ -336,15 +380,18 @@ export class AggregateSnapshotEntity {
 ## Step 5. EventStore 구현
 
 ```typescript
-// src/contexts/identity/infrastructure/persistence/event-store/mikro-event-store.impl.ts
+// src/contexts/identity/adapter/out/persistence/event-store/mikro-event-store.impl.ts
 import { Injectable } from "@nestjs/common";
 import { EntityManager } from "@mikro-orm/postgresql";
 
 import {
   ConcurrencyException,
   type EventStore,
-} from "@/contexts/identity/application/shared/event-store.port";
-import { DomainEvent } from "@/contexts/identity/domain/shared/domain-event.base";
+} from "@/contexts/identity/application/ports/out/event-store.port";
+import {
+  DomainEvent,
+  type DomainEventMetadata,
+} from "@/shared-kernel/domain/domain-event.base";
 
 import { EventStoreEntity } from "./event-store.entity";
 
@@ -399,7 +446,18 @@ export class MikroEventStore implements EventStore {
       { aggregateId, eventVersion: { $gt: fromVersion } },
       { orderBy: { eventVersion: "asc" } },
     );
-    return rows.map(rowToDomainEvent);
+    return rows.map((row) =>
+      DomainEvent.restore({
+        eventId: row.eventId,
+        aggregateId: row.aggregateId,
+        aggregateType: row.aggregateType,
+        eventType: row.eventType,
+        eventVersion: row.eventVersion,
+        payload: row.payload,
+        metadata: (row.metadata ?? {}) as DomainEventMetadata,
+        occurredAt: row.occurredAt,
+      }),
+    );
   }
 
   async loadEventsByType(
@@ -412,49 +470,37 @@ export class MikroEventStore implements EventStore {
       { aggregateType, sequence: { $gt: fromSequence } },
       { orderBy: { sequence: "asc" } },
     );
-    return rows.map(rowToDomainEvent);
-  }
-}
-
-/**
- * EventStoreEntity → DomainEvent (concrete class는 도메인 모듈이 register 해야 함.
- * 우선은 익명 클래스로 복원하되, type 정보는 그대로 들고 다님)
- */
-function rowToDomainEvent(row: EventStoreEntity): DomainEvent {
-  // DomainEvent는 추상 클래스이므로 익명 구체 클래스로 인스턴스화
-  class RestoredEvent extends DomainEvent {
-    constructor() {
-      super({
+    return rows.map((row) =>
+      DomainEvent.restore({
         eventId: row.eventId,
         aggregateId: row.aggregateId,
         aggregateType: row.aggregateType,
         eventType: row.eventType,
         eventVersion: row.eventVersion,
         payload: row.payload,
-        metadata: row.metadata as object,
+        metadata: (row.metadata ?? {}) as DomainEventMetadata,
         occurredAt: row.occurredAt,
-      });
-    }
+      }),
+    );
   }
-  return new RestoredEvent();
 }
 ```
 
-> **메모**: 위 `rowToDomainEvent`는 익명 클래스를 만든다. 이는 Aggregate.replay()가 `event.eventType`을 보고 분기하는 구조이기 때문에 충분히 동작한다. (구체 이벤트 클래스로 deserialize 하지 않는다.) 이는 ES의 일반적인 패턴이다.
+> **메모**: `DomainEvent.restore()`는 EventStore 어댑터에서만 호출하는 *복원 전용 팩토리*다. `Aggregate.replay()`가 `event.eventType`으로 분기하는 구조이므로 구체 이벤트 클래스로 deserialize 하지 않아도 충분히 동작한다. 만약 향후 projection/외부 핸들러가 `instanceof MemberRegisteredEvent` 같은 분기를 요구한다면, `eventType -> 구체 클래스` 레지스트리를 두고 `restore`를 그쪽에 위임하는 식으로 확장한다.
 
 ---
 
 ## Step 6. SnapshotStore 구현
 
 ```typescript
-// src/contexts/identity/infrastructure/persistence/event-store/mikro-snapshot-store.impl.ts
+// src/contexts/identity/adapter/out/persistence/event-store/mikro-snapshot-store.impl.ts
 import { Injectable } from "@nestjs/common";
 import { EntityManager } from "@mikro-orm/postgresql";
 
 import type {
   AggregateSnapshot,
   SnapshotStore,
-} from "@/contexts/identity/application/shared/snapshot-store.port";
+} from "@/contexts/identity/application/ports/out/snapshot-store.port";
 
 import { AggregateSnapshotEntity } from "./aggregate-snapshot.entity";
 
@@ -495,13 +541,15 @@ export class MikroSnapshotStore implements SnapshotStore {
 
 ## Step 7. Projection Dispatcher
 
+> `EventPublisher` port를 구현하는 driven adapter. `EventEmitter2`라는 외부(NestJS) 기술에 의존하므로 `adapter/out/projections/` 아래에 둔다.
+
 ```typescript
-// src/contexts/identity/infrastructure/projections/projection-dispatcher.ts
+// src/contexts/identity/adapter/out/projections/projection-dispatcher.ts
 import { Injectable } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 
-import type { EventPublisher } from "@/contexts/identity/application/shared/event-publisher.port";
-import type { DomainEvent } from "@/contexts/identity/domain/shared/domain-event.base";
+import type { EventPublisher } from "@/contexts/identity/application/ports/out/event-publisher.port";
+import type { DomainEvent } from "@/shared-kernel/domain/domain-event.base";
 
 @Injectable()
 export class ProjectionDispatcher implements EventPublisher {
@@ -524,14 +572,14 @@ export class ProjectionDispatcher implements EventPublisher {
 ## Step 8. EventStore Module + 전역 등록
 
 ```typescript
-// src/contexts/identity/infrastructure/persistence/event-store/event-store.module.ts
+// src/contexts/identity/adapter/out/persistence/event-store/event-store.module.ts
 import { Module } from "@nestjs/common";
 import { MikroOrmModule } from "@mikro-orm/nestjs";
 import { EventEmitterModule } from "@nestjs/event-emitter";
 
-import { EVENT_STORE } from "@/contexts/identity/application/shared/event-store.port";
-import { SNAPSHOT_STORE } from "@/contexts/identity/application/shared/snapshot-store.port";
-import { EVENT_PUBLISHER } from "@/contexts/identity/application/shared/event-publisher.port";
+import { EVENT_STORE } from "@/contexts/identity/application/ports/out/event-store.port";
+import { SNAPSHOT_STORE } from "@/contexts/identity/application/ports/out/snapshot-store.port";
+import { EVENT_PUBLISHER } from "@/contexts/identity/application/ports/out/event-publisher.port";
 
 import { EventStoreEntity } from "./event-store.entity";
 import { AggregateSnapshotEntity } from "./aggregate-snapshot.entity";
@@ -562,7 +610,7 @@ export class EventStoreModule {}
 ```typescript
 // src/shared-kernel/shard-kernel.module.ts
 import { Global, Module } from "@nestjs/common";
-import { EventStoreModule } from "@/contexts/identity/infrastructure/persistence/event-store/event-store.module";
+import { EventStoreModule } from "@/contexts/identity/adapter/out/persistence/event-store/event-store.module";
 
 @Global()
 @Module({
@@ -618,8 +666,8 @@ DB에 접속해서 `event_store`, `aggregate_snapshots` 테이블이 생겼는�
 
 ```typescript
 // test/unit/identity/shared/aggregate-root.spec.ts
-import { AggregateRoot } from "@/contexts/identity/domain/shared/aggregate-root.base";
-import { DomainEvent } from "@/contexts/identity/domain/shared/domain-event.base";
+import { AggregateRoot } from "@/shared-kernel/domain/aggregate-root.base";
+import { DomainEvent } from "@/shared-kernel/domain/domain-event.base";
 
 class FooCreated extends DomainEvent<{ name: string }> {
   constructor(aggregateId: string, version: number, name: string) {
@@ -642,11 +690,11 @@ class Foo extends AggregateRoot {
 
   public static create(id: string, name: string): Foo {
     const foo = new Foo();
-    foo.raise(new FooCreated(id, 1, name));
+    foo.apply(new FooCreated(id, 1, name));
     return foo;
   }
 
-  protected applyEvent(event: DomainEvent): void {
+  protected when(event: DomainEvent): void {
     if (event.eventType === "FooCreated") {
       const payload = event.payload as { name: string };
       this._id = event.aggregateId;
@@ -654,38 +702,39 @@ class Foo extends AggregateRoot {
     }
   }
 
-  public toSnapshot(): object {
+  public createSnapshot(): object {
     return { id: this._id, name: this._name };
   }
 
-  public loadFromSnapshot(state: { id: string; name: string }, version: number): void {
-    this._id = state.id;
-    this._name = state.name;
-    this._version = version;
+  public loadFromSnapshot(snapshot: { state: { id: string; name: string }; version: number }): void {
+    this._id = snapshot.state.id;
+    this._name = snapshot.state.name;
+    this._version = snapshot.version;
   }
 }
 
 describe("AggregateRoot", () => {
-  it("raise()는 이벤트를 uncommittedEvents에 쌓고 version을 올린다", () => {
+  it("apply()는 이벤트를 미커밋 버퍼에 쌓고 version을 올린다", () => {
     const foo = Foo.create("foo-1", "hello");
     expect(foo.version).toBe(1);
-    expect(foo.uncommittedEvents).toHaveLength(1);
+    expect(foo.getUncommittedEvents()).toHaveLength(1);
     expect(foo.name).toBe("hello");
   });
 
-  it("markEventsAsCommitted()로 uncommittedEvents를 비운다", () => {
+  it("markAsCommitted()로 미커밋 버퍼를 비운다", () => {
     const foo = Foo.create("foo-1", "hello");
-    foo.markEventsAsCommitted();
-    expect(foo.uncommittedEvents).toHaveLength(0);
+    foo.markAsCommitted();
+    expect(foo.getUncommittedEvents()).toHaveLength(0);
     expect(foo.version).toBe(1);  // version은 유지
   });
 
-  it("replay()로 이벤트 스트림으로부터 상태를 복원한다", () => {
+  it("loadFromHistory()로 이벤트 스트림으로부터 상태를 복원한다", () => {
     const events = [new FooCreated("foo-1", 1, "replayed")];
     const foo = new (Foo as any)() as Foo;
-    foo.replay(events);
+    foo.loadFromHistory(events);
     expect(foo.version).toBe(1);
     expect(foo.name).toBe("replayed");
+    expect(foo.getUncommittedEvents()).toHaveLength(0); // 복원은 미커밋에 쌓지 않는다
   });
 });
 ```
@@ -699,10 +748,10 @@ import { MikroORM } from "@mikro-orm/postgresql";
 import { ConfigModule } from "@nestjs/config";
 
 import { loadEnv } from "@/config/env.config";
-import { EventStoreModule } from "@/contexts/identity/infrastructure/persistence/event-store/event-store.module";
-import { MikroEventStore } from "@/contexts/identity/infrastructure/persistence/event-store/mikro-event-store.impl";
-import { ConcurrencyException } from "@/contexts/identity/application/shared/event-store.port";
-import { DomainEvent } from "@/contexts/identity/domain/shared/domain-event.base";
+import { EventStoreModule } from "@/contexts/identity/adapter/out/persistence/event-store/event-store.module";
+import { MikroEventStore } from "@/contexts/identity/adapter/out/persistence/event-store/mikro-event-store.impl";
+import { ConcurrencyException } from "@/contexts/identity/application/ports/out/event-store.port";
+import { DomainEvent } from "@/shared-kernel/domain/domain-event.base";
 
 class TestEvent extends DomainEvent<{ msg: string }> {
   constructor(aggregateId: string, version: number, msg: string) {
@@ -809,7 +858,7 @@ pnpm run build
 ```
 
 체크리스트:
-- [ ] `AggregateRoot.replay()`가 이벤트 스트림으로부터 상태 복원
+- [ ] `AggregateRoot.loadFromHistory()`가 이벤트 스트림으로부터 상태 복원
 - [ ] `EventStore.append()`가 낙관적 동시성 검증
 - [ ] `SnapshotStore.loadLatest()`가 최신 버전 반환
 - [ ] `ProjectionDispatcher.publishAll()`가 EventEmitter로 emit

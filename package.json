@@ -21,7 +21,19 @@
     "lint": "biome check src",
     "lint:arch": "depcruise src",
     "lint:arch:graph": "depcruise --include-only ^src --output-type dot src | dot -T svg -o docs/architecture.svg",
-    "lint:all": "pnpm lint && pnpm lint:arch"
+    "lint:all": "pnpm lint && pnpm lint:arch",
+    "db:migration:create": "mikro-orm migration:create",
+    "db:migration:up": "mikro-orm migration:up",
+    "db:migration:down": "mikro-orm migration:down",
+    "db:migration:list": "mikro-orm migration:list",
+    "db:schema:fresh": "mikro-orm schema:fresh --run"
+  },
+  "mikro-orm": {
+    "useTsNode": true,
+    "configPaths": [
+      "./src/config/mikro-orm.config.ts",
+      "./dist/config/mikro-orm.config.js"
+    ]
   },
   "dependencies": {
     "@mikro-orm/core": "^6.6.14",
@@ -31,6 +43,7 @@
     "@nestjs/common": "^11.1.19",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.1.19",
+    "@nestjs/event-emitter": "^3.1.0",
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.1.19",

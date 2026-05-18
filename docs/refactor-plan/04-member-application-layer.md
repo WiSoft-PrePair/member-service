@@ -6,27 +6,46 @@
 
 Application 레이어는 Domain과 Infrastructure를 잇는 **시나리오 조립자**다. 이 Phase에서 만들 것:
 
-1. **MemberRepository** (Event Sourcing 기반 Aggregate 영속화) — Port + (in-memory Test Double 포함)
-2. **7개 UseCase** — 각 시나리오 단일 책임 클래스
-3. **MemberProjector** — 이벤트 → `member_read` 테이블 투영
-4. **MemberQueryService** — Read DB 직접 조회 (Query Bus 없음)
-5. **EmailVerificationService** — 인증 코드 저장/검증 (in-memory, Phase 08에서 Redis로 교체 옵션)
-6. **Ports** — PasswordEncoder, EmailSender, MemberReadRepository
+1. **Inbound Port (Driving)** — 7개 UseCase의 인터페이스 (`ports/in/*.use-case.port.ts`)
+2. **Outbound Port (Driven)** — Repository / EmailSender / PasswordEncoder / MemberReadRepository (`ports/out/*.port.ts`)
+3. **MemberRepository 구현** — Event Store + Snapshot Store + Event Publisher를 합성 (`repositories/`)
+4. **7개 UseCase 구현체** — 각 시나리오 단일 책임 클래스, 해당 inbound port를 implements (`use-cases/`)
+5. **MemberProjector** — 이벤트 → `member_read` 테이블 투영 (`projections/`)
+6. **MemberQueryService** — Read DB 직접 조회 (`queries/`)
+7. **EmailVerificationService** — 인증 코드 저장/검증 (`services/`, in-memory; Phase 08에서 Redis 옵션)
+
+> **폴더 구조 원칙 (재확인)**: 
+> - `ports/in/` = 코어가 **외부에 노출**하는 계약 (Controller가 의존). 이번 phase에서 처음 등장.
+> - `ports/out/` = 코어가 **외부에 위임**하는 계약 (외부 어댑터가 implements).
+> - `use-cases/` = `ports/in/` 의 구현체. NestJS DI는 클래스 자체를 토큰으로 쓸 수 있어서 `@Inject` 없이 클래스 주입.
+> - `repositories/` = "outbound port를 합성해 또 다른 outbound port를 만드는" 합성기. ES 패턴 특성상 application 안에 둔다.
 
 ---
 
 ## 산출물 체크리스트
 
-### Ports (`src/contexts/identity/application/member/ports/`)
-- [ ] `member-event-sourced.repository.port.ts` — `load(id)`, `save(aggregate)` 시그니처
-- [ ] `member-read.repository.port.ts` — Read DB용
+### Inbound Ports (`src/contexts/identity/application/member/ports/in/`)
+> 코어가 외부에 노출하는 UseCase 계약. Controller가 의존하는 것은 이 인터페이스다.
+- [ ] `sign-up-member.use-case.port.ts`
+- [ ] `update-member.use-case.port.ts`
+- [ ] `change-password.use-case.port.ts`
+- [ ] `reset-password.use-case.port.ts`
+- [ ] `change-email.use-case.port.ts`
+- [ ] `add-point.use-case.port.ts`
+- [ ] `withdraw-member.use-case.port.ts`
+
+### Outbound Ports (`src/contexts/identity/application/member/ports/out/`)
+> 코어가 외부에 위임하는 계약. 어댑터(DB, SMTP, Bcrypt 등)가 implements 한다.
+- [ ] `member.repository.port.ts` — Aggregate 영속화(`load`, `save`)
+- [ ] `member-read.repository.port.ts` — Read DB 조회용
 - [ ] `email-sender.port.ts`
-- [ ] (Phase 03에서 만든 `password-encoder.port.ts` 그대로)
+- [ ] (Phase 03에서 만든 `password-encoder.port.ts`를 이 폴더로 둔다)
 
-### Repository (`src/contexts/identity/application/member/repositories/`)
-- [ ] `event-sourced-member.repository.ts` — `EventStore` + `SnapshotStore`를 합성한 구현
+### Repository 합성기 (`src/contexts/identity/application/member/repositories/`)
+- [ ] `event-sourced-member.repository.ts` — outbound port 3개(`EventStore`, `SnapshotStore`, `EventPublisher`)를 합성해 `MemberRepository`를 구현
 
-### UseCases (`src/contexts/identity/application/member/use-cases/`)
+### UseCase 구현체 (`src/contexts/identity/application/member/use-cases/`)
+> 각 클래스는 동일 이름의 `ports/in` 인터페이스를 `implements` 한다.
 - [ ] `sign-up-member.use-case.ts`
 - [ ] `update-member.use-case.ts`
 - [ ] `change-password.use-case.ts`
@@ -55,10 +74,121 @@ Application 레이어는 Domain과 Infrastructure를 잇는 **시나리오 조�
 
 ---
 
-## Step 1. Repository Port
+## Step 1. Inbound Ports — UseCase 계약 (Driving)
+
+> 코어가 외부에 노출하는 시나리오 계약. Controller는 **이 인터페이스에만** 의존한다 (구현 클래스는 DI 시점에 주입).
+> 각 인터페이스는 단일 메서드 `execute(req): Promise<res>` 형태이므로 테스트에서 `{ execute: jest.fn() }` 한 줄로 가짜를 만들 수 있다.
 
 ```typescript
-// src/contexts/identity/application/member/ports/member-event-sourced.repository.port.ts
+// src/contexts/identity/application/member/ports/in/sign-up-member.use-case.port.ts
+import type { NotificationChannel } from "@/contexts/identity/domain/member/enums/notification.enum";
+import type { NotificationFrequency } from "@/contexts/identity/domain/member/enums/frequency.enum";
+
+export interface SignUpMemberRequest {
+  email: string;
+  password: string;
+  nickname: string;
+  job: string;
+  notification: NotificationChannel;
+  frequency: NotificationFrequency;
+}
+
+export interface SignUpMemberResponse {
+  memberId: string;
+}
+
+export interface SignUpMemberUseCase {
+  execute(req: SignUpMemberRequest): Promise<SignUpMemberResponse>;
+}
+```
+
+```typescript
+// src/contexts/identity/application/member/ports/in/update-member.use-case.port.ts
+import type { NotificationChannel } from "@/contexts/identity/domain/member/enums/notification.enum";
+import type { NotificationFrequency } from "@/contexts/identity/domain/member/enums/frequency.enum";
+
+export interface UpdateMemberRequest {
+  memberId: string;
+  job?: string;
+  nickname?: string;
+  notification?: NotificationChannel;
+  frequency?: NotificationFrequency;
+}
+
+export interface UpdateMemberUseCase {
+  execute(req: UpdateMemberRequest): Promise<void>;
+}
+```
+
+```typescript
+// src/contexts/identity/application/member/ports/in/change-password.use-case.port.ts
+export interface ChangePasswordRequest {
+  memberId: string;
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface ChangePasswordUseCase {
+  execute(req: ChangePasswordRequest): Promise<void>;
+}
+```
+
+```typescript
+// src/contexts/identity/application/member/ports/in/reset-password.use-case.port.ts
+export interface ResetPasswordRequest {
+  email: string;
+  verificationCode: string;
+}
+
+export interface ResetPasswordResponse {
+  memberId: string;
+  temporaryPassword: string;
+}
+
+export interface ResetPasswordUseCase {
+  execute(req: ResetPasswordRequest): Promise<ResetPasswordResponse>;
+}
+```
+
+```typescript
+// src/contexts/identity/application/member/ports/in/change-email.use-case.port.ts
+export interface ChangeEmailRequest {
+  memberId: string;
+  newEmail: string;
+}
+
+export interface ChangeEmailUseCase {
+  execute(req: ChangeEmailRequest): Promise<void>;
+}
+```
+
+```typescript
+// src/contexts/identity/application/member/ports/in/add-point.use-case.port.ts
+export interface AddPointRequest {
+  memberId: string;
+  amount: number;
+}
+
+export interface AddPointUseCase {
+  execute(req: AddPointRequest): Promise<void>;
+}
+```
+
+```typescript
+// src/contexts/identity/application/member/ports/in/withdraw-member.use-case.port.ts
+export interface WithdrawMemberUseCase {
+  execute(memberId: string): Promise<void>;
+}
+```
+
+---
+
+## Step 2. Outbound Ports — 외부 위임 계약 (Driven)
+
+### 2-1. `member.repository.port.ts`
+
+```typescript
+// src/contexts/identity/application/member/ports/out/member.repository.port.ts
 import type { Member } from "@/contexts/identity/domain/member/member.aggregate";
 
 export const MEMBER_REPOSITORY = Symbol("MEMBER_REPOSITORY");
@@ -69,10 +199,12 @@ export interface MemberRepository {
 }
 ```
 
-> Read DB용 별도 Repository는 아래.
+> 파일명을 기존의 `member-event-sourced.repository.port.ts`에서 `member.repository.port.ts`로 단순화한다. "Event Sourced"라는 구현 디테일은 port가 알 필요가 없다 — 어떤 구현이든 `load`/`save`만 제공하면 된다.
+
+### 2-2. `member-read.repository.port.ts`
 
 ```typescript
-// src/contexts/identity/application/member/ports/member-read.repository.port.ts
+// src/contexts/identity/application/member/ports/out/member-read.repository.port.ts
 import type { NotificationChannel } from "@/contexts/identity/domain/member/enums/notification.enum";
 import type { NotificationFrequency } from "@/contexts/identity/domain/member/enums/frequency.enum";
 
@@ -106,8 +238,10 @@ export interface MemberReadRepository {
 }
 ```
 
+### 2-3. `email-sender.port.ts`
+
 ```typescript
-// src/contexts/identity/application/member/ports/email-sender.port.ts
+// src/contexts/identity/application/member/ports/out/email-sender.port.ts
 export const EMAIL_SENDER = Symbol("EMAIL_SENDER");
 
 export interface EmailSender {
@@ -116,9 +250,13 @@ export interface EmailSender {
 }
 ```
 
+> `password-encoder.port.ts`는 Phase 03에서 정의되었지만, **이번 phase부터 위치를 `ports/out/`로 통일한다.** Symbol 토큰(`PASSWORD_ENCODER`)과 인터페이스는 그대로.
+
 ---
 
-## Step 2. EventSourcedMemberRepository 구현
+## Step 3. EventSourcedMemberRepository — Outbound Port 합성기
+
+> 이 클래스는 outbound port 3개(`EventStore`, `SnapshotStore`, `EventPublisher`)를 합성해서 또 다른 outbound port인 `MemberRepository`를 구현한다. 외부 기술(DB/메시지)에 직접 닿지 않고 "다른 port를 조립"하는 합성기이므로 `application/member/repositories/`에 둔다 (adapter 레이어가 아니다).
 
 ```typescript
 // src/contexts/identity/application/member/repositories/event-sourced-member.repository.ts
@@ -127,19 +265,19 @@ import { Inject, Injectable } from "@nestjs/common";
 import {
   EVENT_STORE,
   type EventStore,
-} from "@/contexts/identity/application/shared/event-store.port";
+} from "@/contexts/identity/application/ports/out/event-store.port";
 import {
   SNAPSHOT_STORE,
   type SnapshotStore,
-} from "@/contexts/identity/application/shared/snapshot-store.port";
+} from "@/contexts/identity/application/ports/out/snapshot-store.port";
 import {
   EVENT_PUBLISHER,
   type EventPublisher,
-} from "@/contexts/identity/application/shared/event-publisher.port";
+} from "@/contexts/identity/application/ports/out/event-publisher.port";
 
 import { Member } from "@/contexts/identity/domain/member/member.aggregate";
 
-import type { MemberRepository } from "../ports/member-event-sourced.repository.port";
+import type { MemberRepository } from "../ports/out/member.repository.port";
 
 const SNAPSHOT_FREQUENCY = 20;
 
@@ -195,7 +333,7 @@ export class EventSourcedMemberRepository implements MemberRepository {
 
 ---
 
-## Step 3. EmailVerificationService (in-memory)
+## Step 4. EmailVerificationService (in-memory)
 
 ```typescript
 // src/contexts/identity/application/member/services/email-verification.service.ts
@@ -245,9 +383,12 @@ export class EmailVerificationService {
 
 ---
 
-## Step 4. UseCases
+## Step 5. UseCases (Inbound Port 구현)
 
-### 4-1. SignUpMember
+> 각 UseCase 클래스는 Step 1에서 정의한 동일 이름의 inbound port 인터페이스를 `implements` 한다.
+> Controller는 클래스를 직접 주입받지만, 타입 시스템 상 인터페이스 계약은 보장된다.
+
+### 5-1. SignUpMember
 
 ```typescript
 // src/contexts/identity/application/member/use-cases/sign-up-member.use-case.ts
@@ -257,25 +398,19 @@ import { Member } from "@/contexts/identity/domain/member/member.aggregate";
 import { Email } from "@/contexts/identity/domain/member/value-objects/email.vo";
 import { Password } from "@/contexts/identity/domain/member/value-objects/password.vo";
 import { Nickname } from "@/contexts/identity/domain/member/value-objects/nickname.vo";
-import type { NotificationChannel } from "@/contexts/identity/domain/member/enums/notification.enum";
-import type { NotificationFrequency } from "@/contexts/identity/domain/member/enums/frequency.enum";
 
-import { MEMBER_REPOSITORY, type MemberRepository } from "../ports/member-event-sourced.repository.port";
-import { MEMBER_READ_REPOSITORY, type MemberReadRepository } from "../ports/member-read.repository.port";
-import { PASSWORD_ENCODER, type PasswordEncoder } from "../ports/password-encoder.port";
+import type {
+  SignUpMemberUseCase as SignUpMemberUseCasePort,
+  SignUpMemberRequest,
+  SignUpMemberResponse,
+} from "../ports/in/sign-up-member.use-case.port";
+import { MEMBER_REPOSITORY, type MemberRepository } from "../ports/out/member.repository.port";
+import { MEMBER_READ_REPOSITORY, type MemberReadRepository } from "../ports/out/member-read.repository.port";
+import { PASSWORD_ENCODER, type PasswordEncoder } from "../ports/out/password-encoder.port";
 import { EmailVerificationService } from "../services/email-verification.service";
 
-export interface SignUpMemberRequest {
-  email: string;
-  password: string;
-  nickname: string;
-  job: string;
-  notification: NotificationChannel;
-  frequency: NotificationFrequency;
-}
-
 @Injectable()
-export class SignUpMemberUseCase {
+export class SignUpMemberUseCase implements SignUpMemberUseCasePort {
   constructor(
     @Inject(MEMBER_REPOSITORY) private readonly repo: MemberRepository,
     @Inject(MEMBER_READ_REPOSITORY) private readonly read: MemberReadRepository,
@@ -283,7 +418,7 @@ export class SignUpMemberUseCase {
     private readonly verification: EmailVerificationService,
   ) {}
 
-  async execute(req: SignUpMemberRequest): Promise<{ memberId: string }> {
+  async execute(req: SignUpMemberRequest): Promise<SignUpMemberResponse> {
     this.verification.consumeVerified(req.email, "REGISTER");
 
     if (await this.read.existsByEmail(req.email.toLowerCase())) {
@@ -305,28 +440,24 @@ export class SignUpMemberUseCase {
 }
 ```
 
-### 4-2. UpdateMember
+> **이름 충돌 회피**: 인터페이스와 클래스가 동일 이름 `SignUpMemberUseCase`를 가지므로, port import는 `as SignUpMemberUseCasePort`로 별칭을 부여한다. 클래스를 외부에서 import할 때는 클래스 본체 이름 그대로 쓰면 된다.
+
+### 5-2. UpdateMember
 
 ```typescript
 // src/contexts/identity/application/member/use-cases/update-member.use-case.ts
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 
 import { Nickname } from "@/contexts/identity/domain/member/value-objects/nickname.vo";
-import type { NotificationChannel } from "@/contexts/identity/domain/member/enums/notification.enum";
-import type { NotificationFrequency } from "@/contexts/identity/domain/member/enums/frequency.enum";
 
-import { MEMBER_REPOSITORY, type MemberRepository } from "../ports/member-event-sourced.repository.port";
-
-export interface UpdateMemberRequest {
-  memberId: string;
-  job?: string;
-  nickname?: string;
-  notification?: NotificationChannel;
-  frequency?: NotificationFrequency;
-}
+import type {
+  UpdateMemberUseCase as UpdateMemberUseCasePort,
+  UpdateMemberRequest,
+} from "../ports/in/update-member.use-case.port";
+import { MEMBER_REPOSITORY, type MemberRepository } from "../ports/out/member.repository.port";
 
 @Injectable()
-export class UpdateMemberUseCase {
+export class UpdateMemberUseCase implements UpdateMemberUseCasePort {
   constructor(
     @Inject(MEMBER_REPOSITORY) private readonly repo: MemberRepository,
   ) {}
@@ -347,7 +478,7 @@ export class UpdateMemberUseCase {
 }
 ```
 
-### 4-3. ChangePassword
+### 5-3. ChangePassword
 
 ```typescript
 // src/contexts/identity/application/member/use-cases/change-password.use-case.ts
@@ -355,17 +486,21 @@ import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 
 import { Password } from "@/contexts/identity/domain/member/value-objects/password.vo";
 
-import { MEMBER_REPOSITORY, type MemberRepository } from "../ports/member-event-sourced.repository.port";
-import { PASSWORD_ENCODER, type PasswordEncoder } from "../ports/password-encoder.port";
+import type {
+  ChangePasswordUseCase as ChangePasswordUseCasePort,
+  ChangePasswordRequest,
+} from "../ports/in/change-password.use-case.port";
+import { MEMBER_REPOSITORY, type MemberRepository } from "../ports/out/member.repository.port";
+import { PASSWORD_ENCODER, type PasswordEncoder } from "../ports/out/password-encoder.port";
 
 @Injectable()
-export class ChangePasswordUseCase {
+export class ChangePasswordUseCase implements ChangePasswordUseCasePort {
   constructor(
     @Inject(MEMBER_REPOSITORY) private readonly repo: MemberRepository,
     @Inject(PASSWORD_ENCODER) private readonly encoder: PasswordEncoder,
   ) {}
 
-  async execute(req: { memberId: string; currentPassword: string; newPassword: string }): Promise<void> {
+  async execute(req: ChangePasswordRequest): Promise<void> {
     const member = await this.repo.load(req.memberId);
     if (!member) throw new NotFoundException();
 
@@ -379,7 +514,7 @@ export class ChangePasswordUseCase {
 }
 ```
 
-### 4-4. ResetPassword
+### 5-4. ResetPassword
 
 ```typescript
 // src/contexts/identity/application/member/use-cases/reset-password.use-case.ts
@@ -387,13 +522,18 @@ import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 
 import { Password } from "@/contexts/identity/domain/member/value-objects/password.vo";
 
-import { MEMBER_REPOSITORY, type MemberRepository } from "../ports/member-event-sourced.repository.port";
-import { MEMBER_READ_REPOSITORY, type MemberReadRepository } from "../ports/member-read.repository.port";
-import { PASSWORD_ENCODER, type PasswordEncoder } from "../ports/password-encoder.port";
+import type {
+  ResetPasswordUseCase as ResetPasswordUseCasePort,
+  ResetPasswordRequest,
+  ResetPasswordResponse,
+} from "../ports/in/reset-password.use-case.port";
+import { MEMBER_REPOSITORY, type MemberRepository } from "../ports/out/member.repository.port";
+import { MEMBER_READ_REPOSITORY, type MemberReadRepository } from "../ports/out/member-read.repository.port";
+import { PASSWORD_ENCODER, type PasswordEncoder } from "../ports/out/password-encoder.port";
 import { EmailVerificationService } from "../services/email-verification.service";
 
 @Injectable()
-export class ResetPasswordUseCase {
+export class ResetPasswordUseCase implements ResetPasswordUseCasePort {
   constructor(
     @Inject(MEMBER_REPOSITORY) private readonly repo: MemberRepository,
     @Inject(MEMBER_READ_REPOSITORY) private readonly read: MemberReadRepository,
@@ -401,7 +541,7 @@ export class ResetPasswordUseCase {
     private readonly verification: EmailVerificationService,
   ) {}
 
-  async execute(req: { email: string; verificationCode: string }): Promise<{ memberId: string; temporaryPassword: string }> {
+  async execute(req: ResetPasswordRequest): Promise<ResetPasswordResponse> {
     this.verification.verify(req.email, req.verificationCode, "PASSWORD_RESET");
     this.verification.consumeVerified(req.email, "PASSWORD_RESET");
 
@@ -431,7 +571,7 @@ function generateTemporaryPassword(): string {
 }
 ```
 
-### 4-5. ChangeEmail
+### 5-5. ChangeEmail
 
 ```typescript
 // src/contexts/identity/application/member/use-cases/change-email.use-case.ts
@@ -439,17 +579,21 @@ import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 
 import { Email } from "@/contexts/identity/domain/member/value-objects/email.vo";
 
-import { MEMBER_REPOSITORY, type MemberRepository } from "../ports/member-event-sourced.repository.port";
+import type {
+  ChangeEmailUseCase as ChangeEmailUseCasePort,
+  ChangeEmailRequest,
+} from "../ports/in/change-email.use-case.port";
+import { MEMBER_REPOSITORY, type MemberRepository } from "../ports/out/member.repository.port";
 import { EmailVerificationService } from "../services/email-verification.service";
 
 @Injectable()
-export class ChangeEmailUseCase {
+export class ChangeEmailUseCase implements ChangeEmailUseCasePort {
   constructor(
     @Inject(MEMBER_REPOSITORY) private readonly repo: MemberRepository,
     private readonly verification: EmailVerificationService,
   ) {}
 
-  async execute(req: { memberId: string; newEmail: string }): Promise<void> {
+  async execute(req: ChangeEmailRequest): Promise<void> {
     this.verification.consumeVerified(req.newEmail, "CHANGE_EMAIL");
 
     const member = await this.repo.load(req.memberId);
@@ -461,18 +605,23 @@ export class ChangeEmailUseCase {
 }
 ```
 
-### 4-6. AddPoint
+### 5-6. AddPoint
 
 ```typescript
 // src/contexts/identity/application/member/use-cases/add-point.use-case.ts
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { MEMBER_REPOSITORY, type MemberRepository } from "../ports/member-event-sourced.repository.port";
+
+import type {
+  AddPointUseCase as AddPointUseCasePort,
+  AddPointRequest,
+} from "../ports/in/add-point.use-case.port";
+import { MEMBER_REPOSITORY, type MemberRepository } from "../ports/out/member.repository.port";
 
 @Injectable()
-export class AddPointUseCase {
+export class AddPointUseCase implements AddPointUseCasePort {
   constructor(@Inject(MEMBER_REPOSITORY) private readonly repo: MemberRepository) {}
 
-  async execute(req: { memberId: string; amount: number }): Promise<void> {
+  async execute(req: AddPointRequest): Promise<void> {
     const m = await this.repo.load(req.memberId);
     if (!m) throw new NotFoundException();
     m.addPoint(req.amount);
@@ -481,15 +630,17 @@ export class AddPointUseCase {
 }
 ```
 
-### 4-7. WithdrawMember
+### 5-7. WithdrawMember
 
 ```typescript
 // src/contexts/identity/application/member/use-cases/withdraw-member.use-case.ts
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
-import { MEMBER_REPOSITORY, type MemberRepository } from "../ports/member-event-sourced.repository.port";
+
+import type { WithdrawMemberUseCase as WithdrawMemberUseCasePort } from "../ports/in/withdraw-member.use-case.port";
+import { MEMBER_REPOSITORY, type MemberRepository } from "../ports/out/member.repository.port";
 
 @Injectable()
-export class WithdrawMemberUseCase {
+export class WithdrawMemberUseCase implements WithdrawMemberUseCasePort {
   constructor(@Inject(MEMBER_REPOSITORY) private readonly repo: MemberRepository) {}
 
   async execute(memberId: string): Promise<void> {
@@ -503,7 +654,7 @@ export class WithdrawMemberUseCase {
 
 ---
 
-## Step 5. MemberProjector
+## Step 6. MemberProjector
 
 Projector는 `@OnEvent` 데코레이터로 `ProjectionDispatcher`가 emit하는 이벤트를 구독한다.
 
@@ -512,8 +663,8 @@ Projector는 `@OnEvent` 데코레이터로 `ProjectionDispatcher`가 emit하는 
 import { Inject, Injectable } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
 
-import { MEMBER_READ_REPOSITORY, type MemberReadRepository } from "../ports/member-read.repository.port";
-import type { DomainEvent } from "@/contexts/identity/domain/shared/domain-event.base";
+import { MEMBER_READ_REPOSITORY, type MemberReadRepository } from "../ports/out/member-read.repository.port";
+import type { DomainEvent } from "@/shared-kernel/domain/domain-event.base";
 
 import { MemberRegisteredEvent } from "@/contexts/identity/domain/member/events/member-registered.event";
 import { MemberUpdatedEvent } from "@/contexts/identity/domain/member/events/member-updated.event";
@@ -586,7 +737,7 @@ export class MemberProjector {
 
 ---
 
-## Step 6. MemberQueryService
+## Step 7. MemberQueryService
 
 CQRS Query Bus는 쓰지 않는다. Controller가 이 서비스를 직접 호출.
 
@@ -597,7 +748,7 @@ import {
   MEMBER_READ_REPOSITORY,
   type MemberReadDto,
   type MemberReadRepository,
-} from "../ports/member-read.repository.port";
+} from "../ports/out/member-read.repository.port";
 
 @Injectable()
 export class MemberQueryService {
@@ -614,13 +765,13 @@ export class MemberQueryService {
 
 ---
 
-## Step 7. 모듈 구성 (선택적, Phase 05에서 통합 가능)
+## Step 8. 모듈 구성 (선택적, Phase 05에서 통합 가능)
 
 이 시점에서는 아직 Adapter(MemberReadRepository 구현, BcryptEncoder, Nodemailer)가 없으므로 모듈 통합은 **Phase 05에서 일괄 수행**한다.
 
 ---
 
-## Step 8. 테스트 — In-memory Test Doubles
+## Step 9. 테스트 — In-memory Test Doubles
 
 UseCase 통합 테스트를 in-memory 더블로 작성하면 Phase 05 (DB) 없이도 비즈니스 시나리오 검증이 가능하다.
 
@@ -628,13 +779,13 @@ UseCase 통합 테스트를 in-memory 더블로 작성하면 Phase 05 (DB) 없�
 
 ```typescript
 // test/unit/identity/member/_doubles.ts
-import type { EventStore } from "@/contexts/identity/application/shared/event-store.port";
-import type { SnapshotStore } from "@/contexts/identity/application/shared/snapshot-store.port";
-import type { EventPublisher } from "@/contexts/identity/application/shared/event-publisher.port";
-import type { MemberReadRepository } from "@/contexts/identity/application/member/ports/member-read.repository.port";
-import type { PasswordEncoder } from "@/contexts/identity/application/member/ports/password-encoder.port";
-import type { EmailSender } from "@/contexts/identity/application/member/ports/email-sender.port";
-import type { DomainEvent } from "@/contexts/identity/domain/shared/domain-event.base";
+import type { EventStore } from "@/contexts/identity/application/ports/out/event-store.port";
+import type { SnapshotStore } from "@/contexts/identity/application/ports/out/snapshot-store.port";
+import type { EventPublisher } from "@/contexts/identity/application/ports/out/event-publisher.port";
+import type { MemberReadRepository } from "@/contexts/identity/application/member/ports/out/member-read.repository.port";
+import type { PasswordEncoder } from "@/contexts/identity/application/member/ports/out/password-encoder.port";
+import type { EmailSender } from "@/contexts/identity/application/member/ports/out/email-sender.port";
+import type { DomainEvent } from "@/shared-kernel/domain/domain-event.base";
 
 export class InMemoryEventStore implements EventStore {
   private store = new Map<string, DomainEvent[]>();
