@@ -1,8 +1,8 @@
-export abstract class ValueObject<V extends object> {
-  protected readonly value: V;
+export abstract class ValueObject<V> {
+  protected readonly _value: V;
 
   protected constructor(value: V) {
-    this.value = Object.freeze({ ...value });
+    this._value = value;
   }
 
   public equals(other?: ValueObject<V>): boolean {
@@ -10,6 +10,10 @@ export abstract class ValueObject<V extends object> {
       return false;
     }
 
-    return JSON.stringify(this.value) === JSON.stringify(other.value);
+    return JSON.stringify(this._value) === JSON.stringify(other.value);
+  }
+
+  public get value(): V {
+    return this._value;
   }
 }

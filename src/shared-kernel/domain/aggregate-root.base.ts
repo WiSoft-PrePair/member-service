@@ -9,10 +9,6 @@ export abstract class AggregateRoot {
   protected _version: number = 0;
   private _uncommittedEvents: DomainEvent[] = [];
 
-  public get version(): number {
-    return this._version;
-  }
-
   /**
    * 아직 Event Store에 저장되지 않은 이벤트 목록
    */
@@ -44,6 +40,10 @@ export abstract class AggregateRoot {
       this.when(event);
       this._version = event.eventVersion;
     }
+  }
+
+  public get version(): number {
+    return this._version;
   }
 
   /**
