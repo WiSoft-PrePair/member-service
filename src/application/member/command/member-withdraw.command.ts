@@ -55,7 +55,7 @@ export class WithdrawMemberCommandHandler
       throw new NotFoundException("회원을 찾을 수 없습니다.");
     }
 
-    this.memberRepository.withdraw(command.id);
+    await this.memberRepository.withdraw(command.id);
 
     this.eventStore.append(
       createDomainEvent(command.id, "MemberWithdraw", { id: command.id }),

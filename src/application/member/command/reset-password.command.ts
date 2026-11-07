@@ -22,13 +22,13 @@ import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
 
 export interface ResetPasswordResult {
   memberId: string;
-  temporaryPassword: string;
 }
 
 export class ResetPasswordCommand implements ICommand {
   constructor(
     public readonly email: string,
     public readonly verificationCode: string,
+    public readonly newPassword: string,
   ) {}
 }
 
@@ -75,10 +75,10 @@ export class ResetPasswordCommandHandler
       throw new NotFoundException("Member");
     }
 
-    const tempPassword: string = this.generateTemporaryPassword();
 
+    // 임시 비밀번호를 만들어 돌려주지 않고, 인증을 마친 사용자가 정한 새 비밀번호로 바로 바꾼다
     const updatedMember: Member = existMember.resetPassword(
-      tempPassword,
+      command.newPassword,
       this.passwordEncoder,
     );
 
@@ -91,7 +91,10 @@ export class ResetPasswordCommandHandler
     await this.em.flush();
 
     this.eventBus.publish(
-      new MemberPasswordResetEvent(updatedMember.id, tempPassword),
+      new MemberPasswordResetEvent(
+        updatedMember.id,
+        updatedMember.password.value,
+      ),
     );
 
     this.emailVerificationService.consumeVerifiedEmail(command.email);
@@ -106,33 +109,6 @@ export class ResetPasswordCommandHandler
 
     return {
       memberId: updatedMember.id,
-      temporaryPassword: tempPassword,
     };
-  }
-
-  private generateTemporaryPassword() {
-    const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    const lowercase = "abcdefghijklmnopqrstuvwxyz";
-    const numbers = "0123456789";
-    const special = "!@#$%^&*";
-    const all = uppercase + lowercase + numbers + special;
-
-    // 최소 조건 만족 (대문자 1, 소문자 1, 숫자 1, 특수문자 1)
-    let password: string = "";
-    password += uppercase[Math.floor(Math.random() * uppercase.length)];
-    password += lowercase[Math.floor(Math.random() * lowercase.length)];
-    password += numbers[Math.floor(Math.random() * numbers.length)];
-    password += special[Math.floor(Math.random() * special.length)];
-
-    // 나머지 4자리 랜덤
-    for (let i = 0; i < 4; i++) {
-      password += all[Math.floor(Math.random() * all.length)];
-    }
-
-    // 셔플 (순서 예측 방지)
-    return password
-      .split("")
-      .sort(() => Math.random() - 0.5)
-      .join("");
   }
 }

@@ -119,11 +119,19 @@ export class AuthController {
     return { success: true };
   }
 
+  /** 내 정보: 마이페이지 · 새로고침 뒤 화면을 채울 수 있게 닉네임 · 직무 · 알림 설정까지 돌려준다 */
   @Get("me")
-  getUser(@CurrentUser() user: User) {
+  async getUser(@CurrentUser() user: User) {
+    const member: MemberReadEntity | null =
+      await this.memberReadRepository.findById(user.memberId);
+
     return {
       memberId: user.memberId,
-      email: user.email,
+      email: member?.email ?? user.email,
+      nickname: member?.nickname,
+      job: member?.job,
+      notification: member?.notification,
+      frequency: member?.frequency,
     };
   }
 }

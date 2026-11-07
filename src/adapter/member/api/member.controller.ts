@@ -12,8 +12,8 @@ import {
 import {
   AddPointDto,
   ChangeEmailDto,
-  type ChangePasswordDto,
-  type RegisterMemberDto,
+  ChangePasswordDto,
+  RegisterMemberDto,
   ResetPasswordDto,
   SendEmailVerificationDto,
   UpdateMemberDto,
@@ -180,15 +180,14 @@ export class MemberController {
       new ResetPasswordCommand(
         resetPasswordDto.email,
         resetPasswordDto.verificationCode,
+        resetPasswordDto.newPassword,
       ),
     );
 
     return {
       success: true,
       memberId: result.memberId,
-      tempPassword: result.temporaryPassword,
-      message:
-        "비밀번호가 재설정되었습니다. 임시 비밀번호로 로그인 후 변경해주세요.",
+      message: "비밀번호를 바꿨습니다. 새 비밀번호로 로그인해 주세요.",
     };
   }
 
@@ -204,7 +203,9 @@ export class MemberController {
     return { newEmail: result };
   }
 
+  // 서비스 간 호출 전용: 로그인 대신 내부 키(x-api-prepair)를 확인한다
   @Public()
+  @UseGuards(ApiPrepairGuard)
   @Patch(":id/point")
   async addPoint(@Param("id") memberId: string, @Body() dto: AddPointDto) {
     await this.commandBus.execute(new AddPointCommand(memberId, dto.point));

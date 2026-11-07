@@ -1,3 +1,5 @@
+import { randomInt } from "node:crypto";
+
 export class VerificationCode {
   private readonly _value: string;
   private readonly _expiresAt: Date;
@@ -9,7 +11,7 @@ export class VerificationCode {
 
   // 6자리 랜덤 숫자 생성
   public static generate(): VerificationCode {
-    const code: string = Math.floor(1000 + Math.random() * 9000).toString();
+    const code: string = randomInt(0, 1_000_000).toString().padStart(6, "0");
 
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 

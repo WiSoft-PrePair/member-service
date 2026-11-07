@@ -4,6 +4,6 @@ export class VerifyEmailDto {
   @IsEmail()
   email: string;
 
-  @Length(4, 4)
+  @Length(6, 6)
   code: string;
 }

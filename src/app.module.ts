@@ -12,9 +12,6 @@ import { OAuthModule } from "@/adapter/oauth/oauth.module";
 import { LoggerModule } from "@/adapter/shared/logger/logger.module";
 import { CorrelationIdMiddleware } from "@/adapter/shared/middleware/correlation-id.middleware";
 import { HealthController } from "@/adapter/shared/api/health.controller";
-import { InterviewModule } from "@/adapter/interview/interview.module";
-import { PrismaModule } from "@/adapter/shared/prisma";
-import { ScheduleModule } from "@nestjs/schedule";
 
 @Module({
   imports: [
@@ -23,14 +20,11 @@ import { ScheduleModule } from "@nestjs/schedule";
       validate: (config: Record<string, any>) => envSchema.parse(config),
     }),
     CqrsModule.forRoot(),
-    ScheduleModule.forRoot(),
     PersistenceModule,
     MemberModule,
     AuthModule,
     OAuthModule,
     LoggerModule,
-    InterviewModule,
-    PrismaModule,
   ],
   controllers: [HealthController],
   providers: [
