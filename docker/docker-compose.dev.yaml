@@ -3,7 +3,7 @@ name: prepair
 services:
   database:
     image: postgres:17
-    container_name: prepair-db
+    container_name: prepair-member-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
