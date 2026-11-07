@@ -180,15 +180,14 @@ export class MemberController {
       new ResetPasswordCommand(
         resetPasswordDto.email,
         resetPasswordDto.verificationCode,
+        resetPasswordDto.newPassword,
       ),
     );
 
     return {
       success: true,
       memberId: result.memberId,
-      tempPassword: result.temporaryPassword,
-      message:
-        "비밀번호가 재설정되었습니다. 임시 비밀번호로 로그인 후 변경해주세요.",
+      message: "비밀번호를 바꿨습니다. 새 비밀번호로 로그인해 주세요.",
     };
   }
 
