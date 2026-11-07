@@ -12,8 +12,8 @@ import {
 import {
   AddPointDto,
   ChangeEmailDto,
-  type ChangePasswordDto,
-  type RegisterMemberDto,
+  ChangePasswordDto,
+  RegisterMemberDto,
   ResetPasswordDto,
   SendEmailVerificationDto,
   UpdateMemberDto,
@@ -203,7 +203,9 @@ export class MemberController {
     return { newEmail: result };
   }
 
+  // 서비스 간 호출 전용: 로그인 대신 내부 키(x-api-prepair)를 확인한다
   @Public()
+  @UseGuards(ApiPrepairGuard)
   @Patch(":id/point")
   async addPoint(@Param("id") memberId: string, @Body() dto: AddPointDto) {
     await this.commandBus.execute(new AddPointCommand(memberId, dto.point));
