@@ -41,8 +41,6 @@ export class MemberUpdateEventHandler
       entity.email = event.email;
       entity.job = event.job;
       entity.nickname = event.nickname;
-      entity.notification = event.notification;
-      entity.frequency = event.frequency;
       entity.point = event.point;
       entity.isPro = event.isPro;
       entity.updatedAt = event.occurredAt;

@@ -5,12 +5,10 @@ import {
   ICommandHandler,
 } from "@nestjs/cqrs";
 import {
-  FrequencyEnum,
   Member,
   MEMBER_REPOSITORY,
   type MemberRepository,
   MemberUpdateEvent,
-  NotificationEnum,
 } from "@/domain/member";
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { EVENT_STORE, type EventStore } from "@/domain/shared";
@@ -22,8 +20,6 @@ export class MemberUpdateCommand implements ICommand {
     public readonly id: string,
     public readonly job?: string,
     public readonly nickname?: string,
-    public readonly notification?: NotificationEnum,
-    public readonly frequency?: FrequencyEnum,
   ) {}
 }
 
@@ -63,8 +59,6 @@ export class MemberUpdateCommandHandler
     const updatedMember: Member = existingMember.update({
       job: command.job ?? existingMember.job,
       nickname: command.nickname ?? existingMember.nickname,
-      notification: command.notification ?? existingMember.notification,
-      frequency: command.frequency ?? existingMember.frequency,
     });
 
     await this.memberRepository.update(updatedMember);
@@ -82,8 +76,6 @@ export class MemberUpdateCommandHandler
         updatedMember.password.value,
         updatedMember.job,
         updatedMember.nickname,
-        updatedMember.notification,
-        updatedMember.frequency,
         updatedMember.point,
         updatedMember.isPro,
       ),

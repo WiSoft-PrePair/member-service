@@ -1,5 +1,4 @@
-import { IsEnum, IsNotEmpty, IsString } from "class-validator";
-import { FrequencyEnum, NotificationEnum } from "@/domain/member";
+import { IsNotEmpty, IsString } from "class-validator";
 
 export class OauthCompleteRegisterDto {
   @IsString()
@@ -9,10 +8,4 @@ export class OauthCompleteRegisterDto {
   @IsString()
   @IsNotEmpty()
   job!: string;
-
-  @IsEnum(NotificationEnum)
-  notification!: NotificationEnum;
-
-  @IsEnum(FrequencyEnum)
-  frequency!: FrequencyEnum;
 }

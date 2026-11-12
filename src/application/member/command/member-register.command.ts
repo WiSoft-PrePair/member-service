@@ -5,11 +5,9 @@ import {
   ICommandHandler,
 } from "@nestjs/cqrs";
 import {
-  FrequencyEnum,
   Member,
   MEMBER_REPOSITORY,
   type MemberRepository,
-  NotificationEnum,
   PASSWORD_ENCODER,
   type PasswordEncoder,
 } from "@/domain/member";
@@ -26,8 +24,6 @@ export class MemberRegisterCommand implements ICommand {
     public readonly password: string,
     public readonly job: string,
     public readonly nickname: string,
-    public readonly notification: NotificationEnum,
-    public readonly frequency: FrequencyEnum,
   ) {}
 }
 
@@ -71,8 +67,6 @@ export class MemberRegisterCommandHandler
         password: command.password,
         job: command.job,
         nickname: command.nickname,
-        notification: command.notification,
-        frequency: command.frequency,
       },
       this.passwordEncoder,
     );
@@ -92,8 +86,6 @@ export class MemberRegisterCommandHandler
         member.password.value,
         member.job,
         member.nickname,
-        member.notification,
-        member.frequency,
       ),
     );
 

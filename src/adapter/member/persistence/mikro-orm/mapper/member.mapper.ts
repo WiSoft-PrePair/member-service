@@ -11,8 +11,6 @@ export class MemberMapper {
       password: Password.fromHashed(entity.password),
       job: entity.job,
       nickname: entity.nickname,
-      notification: entity.notification,
-      frequency: entity.frequency,
       point: entity.point,
       isPro: entity.isPro,
     });
@@ -26,8 +24,6 @@ export class MemberMapper {
     entity.password = domain.password.value;
     entity.job = domain.job;
     entity.nickname = domain.nickname;
-    entity.notification = domain.notification;
-    entity.frequency = domain.frequency;
     entity.point = domain.point;
     entity.isPro = domain.isPro;
 

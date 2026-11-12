@@ -1,4 +1,3 @@
-import { FrequencyEnum, NotificationEnum } from "./enums";
 import {
   MemberType,
   RegisterMemberRequest,
@@ -16,8 +15,6 @@ export class Member {
   readonly password: Password;
   readonly job: string;
   readonly nickname: string;
-  readonly notification: NotificationEnum;
-  readonly frequency: FrequencyEnum;
   readonly point: number;
   readonly isPro: boolean;
 
@@ -47,8 +44,6 @@ export class Member {
         password: member.password.value,
         job: member.job,
         nickname: member.nickname,
-        notification: member.notification,
-        frequency: member.frequency,
         occurredAt: new Date(),
       }),
     );
@@ -64,8 +59,6 @@ export class Member {
       password: this.password,
       job: request.job ?? this.job,
       nickname: request.nickname ?? this.nickname,
-      notification: request.notification ?? this.notification,
-      frequency: request.frequency ?? this.frequency,
       point: this.point,
       isPro: this.isPro,
     });
@@ -75,8 +68,6 @@ export class Member {
         memberId: updatedMember.id,
         job: updatedMember.job,
         nickname: updatedMember.nickname,
-        notification: updatedMember.notification,
-        frequency: updatedMember.frequency,
         updatedAt: new Date(),
       }),
     );

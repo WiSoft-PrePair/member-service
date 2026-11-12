@@ -43,11 +43,7 @@ export class MemberReadRepositoryImpl implements MemberReadRepository {
     const knex = this.em.getKnex();
 
     const rows = await knex("member_read as m")
-      .leftJoin(
-        "oauth_connections as oc",
-        knex.raw("m.id::uuid = oc.member_id AND oc.provider = 'kakao'"),
-      )
-      .select("m.*", "oc.access_token as kakaoAccessToken")
+      .select("m.*")
       .orderBy("m.created_at", "desc")
       .limit(options?.limit ?? 20)
       .offset(options?.offset ?? 0);
@@ -59,14 +55,11 @@ export class MemberReadRepositoryImpl implements MemberReadRepository {
           email: row.email,
           job: row.job,
           nickname: row.nickname,
-          notification: row.notification,
-          frequency: row.frequency,
           point: row.point,
           isPro: row.is_pro,
           createdAt: row.created_at,
           updatedAt: row.updated_at,
           activity: row.activity,
-          kakaoAccessToken: row.kakaoAccessToken ?? null,
         }),
     );
   }
@@ -86,8 +79,6 @@ export class MemberReadRepositoryImpl implements MemberReadRepository {
       email: entity.email,
       job: entity.job,
       nickname: entity.nickname,
-      notification: entity.notification,
-      frequency: entity.frequency,
       point: entity.point,
       isPro: entity.isPro,
       createdAt: entity.createdAt,
@@ -104,8 +95,6 @@ export class MemberReadRepositoryImpl implements MemberReadRepository {
     entity.email = dto.email;
     entity.job = dto.job;
     entity.nickname = dto.nickname;
-    entity.notification = dto.notification;
-    entity.frequency = dto.frequency;
     entity.point = dto.point;
     entity.isPro = dto.isPro;
     entity.createdAt = dto.createdAt;

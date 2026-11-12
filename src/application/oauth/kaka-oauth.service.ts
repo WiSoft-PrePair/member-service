@@ -7,12 +7,10 @@ import {
 import { JwtService } from "@/adapter/auth/security";
 import { RefreshTokenService } from "@/application/auth";
 import {
-  FrequencyEnum,
   Member,
   MEMBER_REPOSITORY,
   MemberLoginEvent,
   type MemberRepository,
-  NotificationEnum,
 } from "@/domain/member";
 import {
   OAUTH_REPOSITORY,
@@ -36,7 +34,6 @@ import {
   OAuthUserInfo,
 } from "@/application/oauth/ports/oauth-provider.port";
 import { JwtToken } from "@/application/oauth/ports";
-import { MemberUpdateCommand } from "@/application/member/command/member-update.command";
 
 @Injectable()
 export class KakaOauthService {
@@ -123,12 +120,7 @@ export class KakaOauthService {
    * [2단계] 회원가입 완료
    * - 등록 토큰 검증 후 실제 회원 생성
    */
-  async completeRegistration(
-    registrationToken: string,
-    job: string,
-    notification: NotificationEnum,
-    frequency: FrequencyEnum,
-  ) {
+  async completeRegistration(registrationToken: string, job: string) {
     // 1. 등록 토큰 검증 및 OAuth 정보 추출
     const oauthData: RegistrationTokenData =
       this.registrationTokenService.verifyRegistrationToken(registrationToken);
@@ -163,8 +155,6 @@ export class KakaOauthService {
           oauthData.provider,
           oauthData.providerId,
           job,
-          notification,
-          frequency,
           oauthData.accessToken,
           oauthData.refreshToken,
           oauthData.tokenExpiresIn,
@@ -289,16 +279,6 @@ export class KakaOauthService {
     });
 
     await this.em.flush();
-
-    // notification을 BOTH로 변경 (이메일 + 카카오 알림)
-    await this.commandBus.execute(
-      new MemberUpdateCommand(
-        memberId,
-        undefined,
-        undefined,
-        NotificationEnum.BOTH,
-      ),
-    );
 
     // 기존 세션 유지를 위해 새 accessToken 발급
     const member: Member | null =

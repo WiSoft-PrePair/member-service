@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { Inject, Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import {
   KakaoTokenRefreshResponse,
@@ -10,6 +10,21 @@ import {
   OAuthTokenResponse,
   OAuthUserInfo,
 } from "@/application/oauth/ports/oauth-provider.port";
+import { type ILogger, LOGGER } from "@/adapter/shared/logger/logger.inferface";
+
+/** 카카오 토큰 오류를 사용자에게 보여 줄 문장으로 바꾼다. 원문은 로그에만 남긴다 */
+function kakaoTokenErrorMessage(error: {
+  error: string;
+  error_description: string;
+}) {
+  if (error.error_description?.includes("rate limit")) {
+    return "카카오 로그인 요청이 잠시 많았어요. 1~2분 뒤에 다시 시도해 주세요.";
+  }
+  if (error.error === "invalid_grant") {
+    return "카카오 로그인 시간이 지났어요. 처음부터 다시 로그인해 주세요.";
+  }
+  return "카카오 로그인에 실패했어요. 잠시 후 다시 시도해 주세요.";
+}
 
 @Injectable()
 export class KakaoOAuthProvider implements OAuthProvider {
@@ -17,7 +32,10 @@ export class KakaoOAuthProvider implements OAuthProvider {
   private readonly clientSecret: string;
   private readonly defaultRedirectUri: string;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    @Inject(LOGGER) private readonly logger: ILogger,
+  ) {
     this.clientId = configService.getOrThrow<string>("KAKAO_CLIENT_ID");
     this.clientSecret = configService.getOrThrow<string>("KAKAO_CLIENT_SECRET");
     this.defaultRedirectUri =
@@ -51,9 +69,13 @@ export class KakaoOAuthProvider implements OAuthProvider {
         error: string;
         error_description: string;
       };
-      throw new UnauthorizedException(
-        `카카오 토큰 교환 실패: ${error.error_description}, ${error.error}`,
-      );
+      this.logger.warn("Kakao token exchange failed", {
+        module: "KakaoOAuthProvider",
+        status: response.status,
+        error: error.error,
+        description: error.error_description,
+      });
+      throw new UnauthorizedException(kakaoTokenErrorMessage(error));
     }
 
     const kakaoTokens = (await response.json()) as KakaoTokenResponse;

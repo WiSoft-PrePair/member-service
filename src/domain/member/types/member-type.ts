@@ -1,5 +1,4 @@
 import { Email, Password } from "@/domain/member";
-import { FrequencyEnum, NotificationEnum } from "@/domain/member/enums";
 
 export type MemberType = {
   id: string;
@@ -7,8 +6,6 @@ export type MemberType = {
   password: Password;
   job: string;
   nickname: string;
-  notification: NotificationEnum;
-  frequency: FrequencyEnum;
   point: number;
   isPro: boolean;
 };
@@ -24,6 +21,4 @@ export type RegisterMemberRequest = Omit<
 export type UpdateMemberRequest = {
   job?: string;
   nickname?: string;
-  notification?: NotificationEnum;
-  frequency?: FrequencyEnum;
 };

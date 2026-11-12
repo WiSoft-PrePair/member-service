@@ -20,12 +20,9 @@ export class MemberSummary {
     public readonly email: string,
     public readonly job: string,
     public readonly nickname: string,
-    public readonly notification: string,
-    public readonly frequency: string,
     public readonly point: number,
     public readonly isPro: boolean,
     public readonly activity: string[] = [],
-    public readonly kakaoAccessToken: string | null = null,
   ) {}
 }
 export class GetMembersResult {
@@ -72,12 +69,9 @@ export class GetMembersHandler
             m.email,
             m.job,
             m.nickname,
-            m.notification,
-            m.frequency,
             m.point,
             m.isPro,
             m.activity,
-            m.kakaoAccessToken ?? null,
           ),
       ),
       total,
