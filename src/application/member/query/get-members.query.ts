@@ -23,7 +23,6 @@ export class MemberSummary {
     public readonly point: number,
     public readonly isPro: boolean,
     public readonly activity: string[] = [],
-    public readonly kakaoAccessToken: string | null = null,
   ) {}
 }
 export class GetMembersResult {
@@ -73,7 +72,6 @@ export class GetMembersHandler
             m.point,
             m.isPro,
             m.activity,
-            m.kakaoAccessToken ?? null,
           ),
       ),
       total,

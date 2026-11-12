@@ -8,7 +8,6 @@ export class MemberReadDto {
   readonly createdAt: Date;
   readonly updatedAt: Date;
   readonly activity?: string[];
-  readonly kakaoAccessToken?: string | null;
 
   constructor(data: {
     id: string;
@@ -20,7 +19,6 @@ export class MemberReadDto {
     createdAt: Date;
     updatedAt: Date;
     activity?: string[];
-    kakaoAccessToken?: string | null;
   }) {
     Object.assign(this, data);
     Object.freeze(this);

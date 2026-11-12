@@ -43,11 +43,7 @@ export class MemberReadRepositoryImpl implements MemberReadRepository {
     const knex = this.em.getKnex();
 
     const rows = await knex("member_read as m")
-      .leftJoin(
-        "oauth_connections as oc",
-        knex.raw("m.id::uuid = oc.member_id AND oc.provider = 'kakao'"),
-      )
-      .select("m.*", "oc.access_token as kakaoAccessToken")
+      .select("m.*")
       .orderBy("m.created_at", "desc")
       .limit(options?.limit ?? 20)
       .offset(options?.offset ?? 0);
@@ -64,7 +60,6 @@ export class MemberReadRepositoryImpl implements MemberReadRepository {
           createdAt: row.created_at,
           updatedAt: row.updated_at,
           activity: row.activity,
-          kakaoAccessToken: row.kakaoAccessToken ?? null,
         }),
     );
   }
