@@ -48,8 +48,6 @@ export class MemberRegisterEventHandler
       entity.email = event.email;
       entity.job = event.job;
       entity.nickname = event.nickname;
-      entity.notification = event.notification;
-      entity.frequency = event.frequency;
       entity.point = 0;
       entity.isPro = false;
       entity.createdAt = event.occurredAt;

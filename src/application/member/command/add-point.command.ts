@@ -66,8 +66,6 @@ export class AddPointCommandHandler
         updatedMember.password.value,
         updatedMember.job,
         updatedMember.nickname,
-        updatedMember.notification,
-        updatedMember.frequency,
         updatedMember.point,
         updatedMember.isPro,
       ),

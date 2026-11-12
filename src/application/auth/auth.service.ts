@@ -74,8 +74,6 @@ export class AuthService {
       email: member.email.value,
       job: member.job,
       nickname: member.nickname,
-      notification: member.notification,
-      frequency: member.frequency,
       point: member.point,
       isPro: member.isPro,
       activity: memberRead?.activity ?? [],

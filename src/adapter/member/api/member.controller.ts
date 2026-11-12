@@ -67,8 +67,6 @@ export class MemberController {
         registerDto.password,
         registerDto.job,
         registerDto.nickname,
-        registerDto.notification,
-        registerDto.frequency,
       ),
     );
 
@@ -143,8 +141,6 @@ export class MemberController {
         user.memberId,
         updateMemberRequestDto.job,
         updateMemberRequestDto.nickname,
-        updateMemberRequestDto.notification,
-        updateMemberRequestDto.frequency,
       ),
     );
 

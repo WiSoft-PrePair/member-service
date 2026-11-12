@@ -59,8 +59,6 @@ export class MemberReadRepositoryImpl implements MemberReadRepository {
           email: row.email,
           job: row.job,
           nickname: row.nickname,
-          notification: row.notification,
-          frequency: row.frequency,
           point: row.point,
           isPro: row.is_pro,
           createdAt: row.created_at,
@@ -86,8 +84,6 @@ export class MemberReadRepositoryImpl implements MemberReadRepository {
       email: entity.email,
       job: entity.job,
       nickname: entity.nickname,
-      notification: entity.notification,
-      frequency: entity.frequency,
       point: entity.point,
       isPro: entity.isPro,
       createdAt: entity.createdAt,
@@ -104,8 +100,6 @@ export class MemberReadRepositoryImpl implements MemberReadRepository {
     entity.email = dto.email;
     entity.job = dto.job;
     entity.nickname = dto.nickname;
-    entity.notification = dto.notification;
-    entity.frequency = dto.frequency;
     entity.point = dto.point;
     entity.isPro = dto.isPro;
     entity.createdAt = dto.createdAt;

@@ -48,17 +48,8 @@ export class AuthController {
       loginResult.memberId,
     );
 
-    const {
-      memberId,
-      email,
-      job,
-      nickname,
-      notification,
-      frequency,
-      point,
-      isPro,
-      activity,
-    } = loginResult;
+    const { memberId, email, job, nickname, point, isPro, activity } =
+      loginResult;
 
     return {
       accessToken: accessToken.accessToken,
@@ -69,8 +60,6 @@ export class AuthController {
         email,
         job,
         nickname,
-        notification,
-        frequency,
         point,
         isPro,
         activity,
@@ -130,8 +119,6 @@ export class AuthController {
       email: member?.email ?? user.email,
       nickname: member?.nickname,
       job: member?.job,
-      notification: member?.notification,
-      frequency: member?.frequency,
     };
   }
 }

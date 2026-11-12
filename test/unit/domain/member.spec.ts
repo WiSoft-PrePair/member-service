@@ -1,7 +1,5 @@
 import {
   RegisterMemberRequest,
-  FrequencyEnum,
-  NotificationEnum,
   Member,
   PasswordEncoder,
 } from "@/domain/member";
@@ -12,8 +10,6 @@ describe("Member Test", () => {
     nickname: "Kim Molla",
     password: "NAIzx9w7WAY",
     job: "developer",
-    notification: NotificationEnum.EMAIL,
-    frequency: FrequencyEnum.EVERY,
   };
 
   const passwordEncoder: PasswordEncoder = {
@@ -65,8 +61,6 @@ describe("Member Test", () => {
     expect(member.email.value).toBe(registerRequest.email);
     expect(member.job).toBe(registerRequest.job);
     expect(member.nickname).toBe(registerRequest.nickname);
-    expect(member.notification).toBe(registerRequest.notification);
-    expect(member.frequency).toBe(registerRequest.frequency);
   });
 
   it("사용자의 ID는 생성할 때 마다 다르다", () => {

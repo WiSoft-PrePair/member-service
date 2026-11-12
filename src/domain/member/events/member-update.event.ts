@@ -1,5 +1,4 @@
 import { IEvent } from "@nestjs/cqrs";
-import { FrequencyEnum, NotificationEnum } from "@/domain/member";
 
 export class MemberUpdateEvent implements IEvent {
   constructor(
@@ -8,8 +7,6 @@ export class MemberUpdateEvent implements IEvent {
     public readonly password: string,
     public readonly job: string,
     public readonly nickname: string,
-    public readonly notification: NotificationEnum,
-    public readonly frequency: FrequencyEnum,
     public readonly point: number,
     public readonly isPro: boolean,
     public readonly occurredAt: Date = new Date(

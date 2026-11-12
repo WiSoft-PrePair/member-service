@@ -81,8 +81,6 @@ export class KakaoOauthController {
     return this.kakaoAuthService.completeRegistration(
       dto.registrationToken,
       dto.job,
-      dto.notification,
-      dto.frequency,
     );
   }
 

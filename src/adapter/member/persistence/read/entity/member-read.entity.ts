@@ -1,5 +1,4 @@
-import { Entity, Enum, PrimaryKey, Property } from "@mikro-orm/core";
-import { FrequencyEnum, NotificationEnum } from "@/domain/member";
+import { Entity, PrimaryKey, Property } from "@mikro-orm/core";
 
 @Entity({ tableName: "member_read" })
 export class MemberReadEntity {
@@ -14,12 +13,6 @@ export class MemberReadEntity {
 
   @Property()
   nickname!: string;
-
-  @Enum(() => NotificationEnum)
-  notification!: NotificationEnum;
-
-  @Enum(() => FrequencyEnum)
-  frequency!: FrequencyEnum;
 
   @Property({ default: 0 })
   point!: number;

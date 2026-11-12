@@ -11,12 +11,10 @@ import {
   type OauthRepository,
 } from "@/domain/oauth";
 import {
-  FrequencyEnum,
   Member,
   MEMBER_REPOSITORY,
   MemberRegisterEvent,
   type MemberRepository,
-  NotificationEnum,
   PASSWORD_ENCODER,
   type PasswordEncoder,
 } from "@/domain/member";
@@ -37,8 +35,6 @@ export class OAuthMemberRegisterCommand implements ICommand {
     public readonly provider: OAuthProvider,
     public readonly providerId: string,
     public readonly job: string,
-    public readonly notification: NotificationEnum,
-    public readonly frequency: FrequencyEnum,
     public readonly accessToken?: string,
     public readonly refreshToken?: string,
     public readonly tokenExpiresIn?: number,
@@ -84,8 +80,6 @@ export class OAuthMemberRegisterCommandHandler
         password: tempPassword,
         nickname: command.nickname,
         job: command.job,
-        notification: command.notification,
-        frequency: command.frequency,
       },
       this.passwordEncoder,
     );
@@ -117,8 +111,6 @@ export class OAuthMemberRegisterCommandHandler
         password: member.password.value,
         job: member.job,
         nickname: member.nickname,
-        notification: member.notification,
-        frequency: member.frequency,
         point: member.point,
         isPro: member.isPro,
         oauthProvider: command.provider,
@@ -135,8 +127,6 @@ export class OAuthMemberRegisterCommandHandler
         member.password.value,
         member.job,
         member.nickname,
-        member.notification,
-        member.frequency,
       ),
     );
 
