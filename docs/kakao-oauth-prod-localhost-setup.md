@@ -345,7 +345,7 @@ pnpm exec biome check .
 로컬 백엔드 `.env`에는 화이트리스트가 이미 등록돼 있으므로 그대로 사용.
 
 ```bash
-docker compose -f docker/docker-compose.dev.yaml --env-file .env up -d  # Postgres
+docker compose --env-file .env up -d  # Postgres
 pnpm install
 pnpm start:dev
 # → http://localhost:7200
@@ -393,7 +393,7 @@ PR을 머지한 뒤 prod 배포:
 
 ```bash
 # prod 머신에서
-docker compose -f docker/docker-compose.prod.yaml --env-file .env up -d --build
+docker compose -f deploy/docker-compose.yaml --env-file .env up -d --build
 ```
 
 ---
@@ -419,7 +419,7 @@ KAKAO_ALLOWED_REDIRECT_URIS=https://prepair.wisoft.dev/auth/kakao/callback,http:
 - env 변경은 컨테이너 재시작이 필요. 보통은 Phase C의 재배포에서 같이 반영됨. 그렇지 않다면 다음 명령으로 재기동:
 
 ```bash
-docker compose -f docker/docker-compose.prod.yaml --env-file .env up -d
+docker compose -f deploy/docker-compose.yaml --env-file .env up -d
 ```
 
 > Phase D 검증 게이트:
@@ -530,7 +530,7 @@ prod 운영자:
 
 ## 운영상 리스크
 
-- **prod DB에 로컬 테스트 회원이 섞일 수 있다.** 본 시나리오는 의도적으로 prod 백엔드를 쓰므로, 카카오 로그인으로 가입을 끝까지 진행하면 prod DB에 회원이 생성된다. UI/Flow 검증 목적엔 큰 문제는 아니지만, 본격 회원 모델/스키마 테스트는 **로컬 백엔드 + 로컬 DB 조합**(`docker-compose.dev.yaml`)을 권장.
+- **prod DB에 로컬 테스트 회원이 섞일 수 있다.** 본 시나리오는 의도적으로 prod 백엔드를 쓰므로, 카카오 로그인으로 가입을 끝까지 진행하면 prod DB에 회원이 생성된다. UI/Flow 검증 목적엔 큰 문제는 아니지만, 본격 회원 모델/스키마 테스트는 **로컬 백엔드 + 로컬 DB 조합**(`../docker-compose.yaml`)을 권장.
 - **운영 변수 변경의 가시성.** `KAKAO_ALLOWED_REDIRECT_URIS` 추가 사실이 팀에 공유되지 않으면 다음 사람이 같은 문제를 겪을 때 추적이 늦어진다. 본 문서가 일부 그 역할을 하지만, prod env가 secret manager로 관리된다면 거기에도 동일 항목 반영 필요.
 - **카카오 콘솔과 백엔드 화이트리스트의 동기화.** 두 곳은 항상 같은 집합이어야 한다. 신규 환경(staging 등) 추가 시 콘솔 등록 → env 추가 → 재배포 순으로 진행.
 
