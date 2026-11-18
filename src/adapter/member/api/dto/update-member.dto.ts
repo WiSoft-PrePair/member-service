@@ -1,9 +1,10 @@
-import { IsOptional, IsString } from "class-validator";
+import { IsIn, IsOptional, IsString } from "class-validator";
+import { JOBS, type Job } from "@/domain/member";
 
 export class UpdateMemberDto {
   @IsOptional()
-  @IsString()
-  job?: string;
+  @IsIn(JOBS)
+  job?: Job;
 
   @IsOptional()
   @IsString()

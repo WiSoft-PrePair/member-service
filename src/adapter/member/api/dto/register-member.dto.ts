@@ -1,4 +1,5 @@
-import { IsEmail, IsString, MinLength } from "class-validator";
+import { IsEmail, IsIn, IsString, MinLength } from "class-validator";
+import { JOBS, type Job } from "@/domain/member";
 
 export class RegisterMemberDto {
   @IsEmail()
@@ -8,8 +9,8 @@ export class RegisterMemberDto {
   @MinLength(8)
   password!: string;
 
-  @IsString()
-  job!: string;
+  @IsIn(JOBS)
+  job!: Job;
 
   @IsString()
   nickname!: string;
