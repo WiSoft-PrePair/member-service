@@ -9,7 +9,7 @@ describe("Member Test", () => {
     email: "sit@test.com",
     nickname: "Kim Molla",
     password: "NAIzx9w7WAY",
-    job: "developer",
+    job: "BACKEND",
   };
 
   const passwordEncoder: PasswordEncoder = {
